@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Geometry and Topology of Data — Lecture Map</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root {
+    --navy: #1E2761;
+    --navy-deep: #161C4D;
+    --ice: #CADCFC;
+    --ink: #2B2B33;
+    --paper: #FFFFFF;
+    --amber: #E8871E;
+    --teal: #1C7293;
+    --mute: #6E7691;
+    --panel: #232C5E;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root:not([data-theme="light"]) {
+    --bg: var(--navy);
+    --fg: var(--paper);
+    --fg-soft: var(--ice);
+    --card-bg: var(--panel);
+    --card-border: rgba(202,220,252,0.18);
+    --link-color: rgba(202,220,252,0.35);
+    --link-dim: rgba(202,220,252,0.06);
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F6FB;
+    --fg: var(--navy);
+    --fg-soft: var(--teal);
+    --card-bg: #FFFFFF;
+    --card-border: rgba(30,39,97,0.12);
+    --link-color: rgba(30,39,97,0.25);
+    --link-dim: rgba(30,39,97,0.05);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      --bg: #F4F6FB;
+      --fg: var(--navy);
+      --fg-soft: var(--teal);
+      --card-bg: #FFFFFF;
+      --card-border: rgba(30,39,97,0.12);
+      --link-color: rgba(30,39,97,0.25);
+      --link-dim: rgba(30,39,97,0.05);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  #app {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  header {
+    position: absolute;
+    top: env(safe-area-inset-top, 0px);
+    left: 0;
+    right: 0;
+    padding: 16px 20px 10px;
+    pointer-events: none;
+    z-index: 5;
+  }
+  h1 {
+    font-family: Cambria, Georgia, serif;
+    font-size: clamp(18px, 2.6vw, 26px);
+    margin: 0 0 2px;
+  }
+  .subtitle {
+    font-size: clamp(12px, 1.4vw, 14px);
+    color: var(--fg-soft);
+    font-style: italic;
+    margin: 0;
+  }
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+  svg:active { cursor: grabbing; }
+  .legend {
+    position: absolute;
+    left: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    background: var(--card-bg);
+    border: 0.5px solid var(--card-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.9;
+    max-width: 230px;
+    z-index: 5;
+  }
+  .legend-title {
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-soft);
+    margin-bottom: 4px;
+  }
+  .legend-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .legend-row.dimmed { opacity: 0.35; }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .panel {
+    position: absolute;
+    right: 16px;
+    top: calc(72px + env(safe-area-inset-top, 0px));
+    width: 260px;
+    max-width: calc(100vw - 32px);
+    background: var(--card-bg);
+    border: 0.5px solid var(--card-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.55;
+    z-index: 5;
+    display: none;
+  }
+  .panel.visible { display: block; }
+  .panel .kicker {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--amber);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .panel h3 {
+    font-family: Cambria, Georgia, serif;
+    font-size: 16px;
+    margin: 0 0 6px;
+    color: var(--fg);
+  }
+  .panel p { margin: 0 0 8px; color: var(--fg-soft); }
+  .panel .conn-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-soft);
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+  .panel .conn-item {
+    display: block;
+    font-size: 12.5px;
+    padding: 3px 0;
+    color: var(--fg);
+    cursor: pointer;
+    border-bottom: 0.5px solid var(--card-border);
+  }
+  .panel .conn-item:last-child { border-bottom: none; }
+  .panel .conn-item:hover { color: var(--amber); }
+  .hint {
+    position: absolute;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    font-size: 11px;
+    color: var(--fg-soft);
+    opacity: 0.7;
+    z-index: 5;
+    text-align: right;
+    max-width: 200px;
+  }
+  .node-label {
+    font-size: 10px;
+    fill: var(--fg);
+    pointer-events: none;
+    font-family: Calibri, Arial, sans-serif;
+  }
+  .node-id {
+    font-size: 9px;
+    font-weight: 700;
+    pointer-events: none;
+    font-family: Cambria, Georgia, serif;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Geometry and Topology of Data</h1>
+    <p class="subtitle">A map of all 21 lectures — drag nodes, scroll to zoom, click a lecture to trace its connections</p>
+  </header>
+  <svg id="graph"></svg>
+  <div class="legend" id="legend"></div>
+  <div class="panel" id="panel"></div>
+  <div class="hint">Click empty space to clear selection</div>
+</div>
+
+<script>
+const lectures = [
+  {id:"L1",  part:"I",   title:"Foundations of general topology",        desc:"Topological spaces, continuity, invariants",        connections:["L2","L7"]},
+  {id:"L2",  part:"I",   title:"Linear algebra of homology",             desc:"Chain complexes over a field",                      connections:["L1","L9","L10","L15"]},
+  {id:"L3",  part:"II",  title:"High-dimensional data geometry",         desc:"Curse of dimensionality, manifold hypothesis",      connections:["L4","L9"]},
+  {id:"L4",  part:"II",  title:"Dimensionality reduction",               desc:"PCA, UMAP, Isomap",                                 connections:["L3","L5"]},
+  {id:"L5",  part:"II",  title:"Data dimension theory",                  desc:"Intrinsic dimension estimators",                    connections:["L4"]},
+  {id:"L6",  part:"II",  title:"Data dynamics",                          desc:"Optimal transport, geodesics, Takens embedding",    connections:["L12","L13","L19"]},
+  {id:"L7",  part:"III", title:"Introduction to data topology",          desc:"Motivating topological data analysis",              connections:["L1","L8","L9"]},
+  {id:"L8",  part:"III", title:"Morse theory",                          desc:"Critical points, sublevel sets",                    connections:["L7","L9","L10"]},
+  {id:"L9",  part:"III", title:"Simplicial complexes and homology",      desc:"Rips / \u010cech / Alpha complexes",                connections:["L2","L3","L7","L8","L10","L14","L20"]},
+  {id:"L10", part:"III", title:"Persistent homology",                   desc:"Barcodes, stability theorem (I)",                   connections:["L6","L8","L9","L11","L12","L15","L21"]},
+  {id:"L11", part:"IV",  title:"Topological statistics",                desc:"Confidence sets, bootstrap",                        connections:["L10","L12"]},
+  {id:"L12", part:"IV",  title:"Representations of persistent homology", desc:"Landscapes, stability (II), multiparameter",        connections:["L6","L10","L11","L19"]},
+  {id:"L13", part:"IV",  title:"Persistence of dynamical systems",       desc:"Time series, evolutionary homology",                connections:["L6","L10"]},
+  {id:"L14", part:"IV",  title:"Mapper algorithm",                      desc:"Nerve of a cover, flagship applications",           connections:["L9"]},
+  {id:"L15", part:"V",   title:"Persistent Laplacians",                 desc:"Spectral TDA",                                      connections:["L2","L10","L16","L20","L21"]},
+  {id:"L16", part:"V",   title:"Sheaf, path, Dirac and Quantum TDA",     desc:"Generalized Laplacians",                            connections:["L15","L17"]},
+  {id:"L17", part:"V",   title:"Persistence knotting",                  desc:"Knot invariants in data",                           connections:["L16","L21"]},
+  {id:"L18", part:"VI",  title:"Graph geometry",                        desc:"Graphs as metric spaces",                           connections:["L19"]},
+  {id:"L19", part:"VI",  title:"Graph curvature",                      desc:"Ollivier\u2013Ricci via optimal transport",          connections:["L6","L12","L18"]},
+  {id:"L20", part:"VII", title:"Topology of ML representations",        desc:"Topological deep learning",                         connections:["L9","L15"]},
+  {id:"L21", part:"VII", title:"Biomedical applications",               desc:"Protein knots, variant forecasting",                connections:["L17","L10","L15"]}
+];
+
+const partInfo = {
+  "I":   {label:"Foundations",            color:"#CADCFC"},
+  "II":  {label:"Geometry and dimension",  color:"#1C7293"},
+  "III": {label:"Topology of data: canon", color:"#2E8B8B"},
+  "IV":  {label:"Statistics and dynamics", color:"#5DB075"},
+  "V":   {label:"Spectral extensions",     color:"#E8871E"},
+  "VI":  {label:"Graphs",                 color:"#C94F4F"},
+  "VII": {label:"ML and applications",     color:"#8C6FD1"}
+};
+
+const idToLecture = Object.fromEntries(lectures.map(l => [l.id, l]));
+
+// Build undirected, de-duplicated edge list from the connections arrays.
+const edgeSet = new Set();
+const links = [];
+lectures.forEach(l => {
+  l.connections.forEach(c => {
+    const key = [l.id, c].sort().join("-");
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key);
+      links.push({source: l.id, target: c});
+    }
+  });
+});
+
+const nodes = lectures.map(l => ({...l}));
+
+const svg = d3.select("#graph");
+const app = document.getElementById("app");
+let width = app.clientWidth, height = app.clientHeight;
+
+const g = svg.append("g");
+
+const zoom = d3.zoom()
+  .scaleExtent([0.3, 3])
+  .on("zoom", (event) => { g.attr("transform", event.transform); });
+svg.call(zoom);
+
+const simulation = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(links).id(d => d.id).distance(90).strength(0.5))
+  .force("charge", d3.forceManyBody().strength(-260))
+  .force("center", d3.forceCenter(width/2, height/2))
+  .force("collide", d3.forceCollide().radius(34));
+
+const linkSel = g.append("g")
+  .attr("stroke", "var(--link-color)")
+  .selectAll("line")
+  .data(links)
+  .join("line")
+  .attr("stroke-width", 1.2);
+
+const nodeGroup = g.append("g")
+  .selectAll("g")
+  .data(nodes)
+  .join("g")
+  .attr("cursor", "pointer")
+  .call(d3.drag()
+    .on("start", dragstarted)
+    .on("drag", dragged)
+    .on("end", dragended));
+
+nodeGroup.append("circle")
+  .attr("r", 16)
+  .attr("fill", d => partInfo[d.part].color)
+  .attr("stroke", "rgba(0,0,0,0.25)")
+  .attr("stroke-width", 1);
+
+nodeGroup.append("text")
+  .attr("class", "node-id")
+  .attr("text-anchor", "middle")
+  .attr("dy", "0.32em")
+  .attr("fill", d => contrastText(partInfo[d.part].color))
+  .text(d => d.id.replace("L",""));
+
+nodeGroup.append("text")
+  .attr("class", "node-label")
+  .attr("text-anchor", "middle")
+  .attr("dy", 30)
+  .text(d => truncate(d.title, 20));
+
+nodeGroup.append("title").text(d => `${d.id}: ${d.title}`);
+
+function contrastText(hex){
+  const c = hex.replace('#','');
+  const r = parseInt(c.substr(0,2),16), gr = parseInt(c.substr(2,2),16), b = parseInt(c.substr(4,2),16);
+  const yiq = (r*299 + gr*587 + b*114) / 1000;
+  return yiq >= 150 ? '#1E2761' : '#FFFFFF';
+}
+function truncate(s, n){ return s.length > n ? s.slice(0,n-1) + '\u2026' : s; }
+
+let selectedId = null;
+
+nodeGroup.on("click", (event, d) => {
+  event.stopPropagation();
+  selectNode(d.id);
+});
+svg.on("click", () => clearSelection());
+
+function neighborsOf(id){
+  const set = new Set([id]);
+  links.forEach(l => {
+    const s = l.source.id || l.source, t = l.target.id || l.target;
+    if (s === id) set.add(t);
+    if (t === id) set.add(s);
+  });
+  return set;
+}
+
+function selectNode(id){
+  selectedId = id;
+  const neigh = neighborsOf(id);
+  nodeGroup.attr("opacity", d => neigh.has(d.id) ? 1 : 0.18);
+  linkSel.attr("stroke", l => {
+    const s = l.source.id || l.source, t = l.target.id || l.target;
+    return (s === id || t === id) ? "#E8871E" : "var(--link-dim)";
+  }).attr("stroke-width", l => {
+    const s = l.source.id || l.source, t = l.target.id || l.target;
+    return (s === id || t === id) ? 2 : 1;
+  }).attr("opacity", l => {
+    const s = l.source.id || l.source, t = l.target.id || l.target;
+    return (s === id || t === id) ? 1 : 0.3;
+  });
+  renderPanel(id);
+  updateLegendDim();
+}
+
+function clearSelection(){
+  selectedId = null;
+  nodeGroup.attr("opacity", 1);
+  linkSel.attr("stroke", "var(--link-color)").attr("stroke-width", 1.2).attr("opacity", 1);
+  document.getElementById("panel").classList.remove("visible");
+  updateLegendDim();
+}
+
+function renderPanel(id){
+  const l = idToLecture[id];
+  const panel = document.getElementById("panel");
+  const connTitles = l.connections.map(cid => {
+    const c = idToLecture[cid];
+    return `<span class="conn-item" data-goto="${cid}">${cid} \u2014 ${c.title}</span>`;
+  }).join("");
+  panel.innerHTML = `
+    <div class="kicker">Part ${l.part} \u00b7 ${partInfo[l.part].label}</div>
+    <h3>${l.id}. ${l.title}</h3>
+    <p>${l.desc}</p>
+    <div class="conn-title">Connects to</div>
+    ${connTitles}
+  `;
+  panel.classList.add("visible");
+  panel.querySelectorAll(".conn-item").forEach(el => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectNode(el.dataset.goto);
+    });
+  });
+}
+
+function updateLegendDim(){
+  d3.selectAll(".legend-row").classed("dimmed", function(){
+    if (!selectedId) return false;
+    const part = d3.select(this).attr("data-part");
+    return part !== idToLecture[selectedId].part;
+  });
+}
+
+// Legend
+const legend = document.getElementById("legend");
+legend.innerHTML = `<div class="legend-title">Course parts</div>` +
+  Object.entries(partInfo).map(([k,v]) =>
+    `<div class="legend-row" data-part="${k}"><span class="swatch" style="background:${v.color}"></span>${k}. ${v.label}</div>`
+  ).join("");
+
+simulation.on("tick", () => {
+  linkSel
+    .attr("x1", d => d.source.x)
+    .attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x)
+    .attr("y2", d => d.target.y);
+  nodeGroup.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+function dragstarted(event, d){
+  if (!event.active) simulation.alphaTarget(0.25).restart();
+  d.fx = d.x; d.fy = d.y;
+}
+function dragged(event, d){
+  d.fx = event.x; d.fy = event.y;
+}
+function dragended(event, d){
+  if (!event.active) simulation.alphaTarget(0);
+  d.fx = null; d.fy = null;
+}
+
+window.addEventListener("resize", () => {
+  width = app.clientWidth; height = app.clientHeight;
+  simulation.force("center", d3.forceCenter(width/2, height/2));
+  simulation.alpha(0.3).restart();
+});
+</script>
+</body>
+</html>

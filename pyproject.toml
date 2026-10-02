@@ -1,0 +1,42 @@
+[project]
+name = "tda-mini-2026"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "biopython",
+    "cechmate",
+    "giotto-tda>=0.6",
+    "graphriccicurvature",
+    "gudhi",
+    "jupyterlab",
+    "kmapper",
+    "matplotlib",
+    "networkx",
+    "numpy",
+    "pandas",
+    "persim",
+    "plotly",
+    "pot",
+    "qiskit",
+    "ripser",
+    "scikit-dimension",
+    "scikit-learn",
+    "scipy",
+    "seaborn",
+    "tadasets",
+    "topoly",
+    "topomodelx",
+    "toponetx",
+    "torch",
+    "torch-geometric",
+    "umap-learn",
+]
+
+# cechmate pins phat==1.5.0a0, whose PyPI sdist has inconsistent metadata
+# (declares 1.5.0) and cannot be built by uv. Use upstream phat from git instead.
+[tool.uv]
+override-dependencies = ["phat @ git+https://github.com/xoltar/phat@872ca92b33ebe92dff2542cbdee6768e575e80aa"]
+
+# phat's setup.py imports pybind11 without declaring it as a build dependency.
+[tool.uv.extra-build-dependencies]
+phat = ["pybind11"]

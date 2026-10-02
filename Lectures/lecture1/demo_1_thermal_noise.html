@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thermal Noise on a Circle</title>
+<style>
+  :root {
+    --navy: #1E2761;
+    --ice: #CADCFC;
+    --ink: #2B2B33;
+    --paper: #FFFFFF;
+    --amber: #E8871E;
+    --teal: #1C7293;
+    --mute: #6E7691;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--navy);
+    font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+    color: var(--paper);
+  }
+  .wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 24px 16px 32px;
+  }
+  h1 {
+    font-family: Cambria, Georgia, serif;
+    font-size: clamp(20px, 3vw, 30px);
+    margin: 0 0 4px;
+    text-align: center;
+  }
+  .subtitle {
+    color: var(--ice);
+    font-style: italic;
+    font-size: clamp(13px, 1.6vw, 16px);
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .stage {
+    background: #2A3470;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  }
+  canvas {
+    display: block;
+    background: #232C5E;
+    border-radius: 8px;
+  }
+  .controls {
+    width: 100%;
+    max-width: 560px;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .slider-row label {
+    font-size: 14px;
+    color: var(--ice);
+    min-width: 110px;
+  }
+  input[type="range"] {
+    flex: 1;
+    accent-color: var(--amber);
+  }
+  .readout {
+    font-variant-numeric: tabular-nums;
+    min-width: 54px;
+    text-align: right;
+    font-size: 14px;
+    color: var(--amber);
+    font-weight: 600;
+  }
+  .status {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 15px;
+    min-height: 24px;
+  }
+  .status .holds { color: var(--teal); font-weight: 700; }
+  .status .fails { color: var(--amber); font-weight: 700; }
+  .buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  button {
+    background: var(--amber);
+    color: var(--navy);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--ice);
+    border: 1px solid var(--ice);
+  }
+  .caption {
+    margin-top: 16px;
+    max-width: 560px;
+    font-size: 13px;
+    color: var(--mute);
+    text-align: center;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>A circle under thermal noise</h1>
+  <div class="subtitle">Every distance here keeps changing. Watch what doesn't.</div>
+
+  <div class="stage">
+    <canvas id="cv" width="520" height="420"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="slider-row">
+      <label for="noise">Noise level</label>
+      <input type="range" id="noise" min="0" max="100" value="0" step="1">
+      <span class="readout" id="noiseVal">0%</span>
+    </div>
+    <div class="buttons">
+      <button id="playBtn">Play</button>
+      <button class="secondary" id="freezeBtn">Freeze</button>
+      <button class="secondary" id="resetBtn">Reset</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="caption">
+    30 points sampled near a circle. Dragging the slider (or pressing Play) increases positional jitter.
+    The hole in the middle survives a wide range of noise — ask the room: at what level does it finally look wrong?
+    Press <strong>Freeze</strong> at any point to hold that configuration still — useful for saying "these are
+    real measured points, with some thermal noise baked in," rather than an animation.
+  </div>
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('cv');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, R = 140;
+  const N = 30;
+
+  // deterministic pseudo-random per point so the same noise level always looks the same
+  function seededRand(seed){
+    let s = seed * 999331 % 2147483647;
+    return function(){
+      s = (s * 16807) % 2147483647;
+      return (s - 1) / 2147483646;
+    };
+  }
+
+  // Each point gets its own decorrelated little "noise generator": a sum of a
+  // few sine waves with independent random frequencies and phases, one set for
+  // the x-displacement and a separately-seeded set for y, so points don't
+  // visually synchronize into clusters and the motion is isotropic (not just
+  // radial/tangential, which could never reach the centre no matter the
+  // amplitude).
+  function makeWiggle(seed){
+    const rnd = seededRand(seed);
+    const terms = [
+      { freq: 0.55 + rnd()*0.35, phase: rnd()*Math.PI*2, w: 1.00 },
+      { freq: 1.10 + rnd()*0.70, phase: rnd()*Math.PI*2, w: 0.55 },
+      { freq: 1.90 + rnd()*1.30, phase: rnd()*Math.PI*2, w: 0.30 },
+    ];
+    const norm = terms.reduce((s,tm)=>s+tm.w, 0);
+    return function(t){
+      let v = 0;
+      for (const tm of terms) v += tm.w * Math.sin(t*tm.freq + tm.phase);
+      return v / norm; // stays within about [-1, 1]
+    };
+  }
+
+  const points = [];
+  for (let i=0;i<N;i++){
+    const baseSeed = i*7919 + 101; // distinct, well-spread seeds decorrelate points
+    const angle = (i/N)*Math.PI*2;
+    points.push({
+      baseX: Math.cos(angle) * R,
+      baseY: Math.sin(angle) * R,
+      wiggleX: makeWiggle(baseSeed + 1),
+      wiggleY: makeWiggle(baseSeed + 4001), // different seed offset decorrelates x from y
+    });
+  }
+
+  let noise = 0;       // 0..100
+  let playing = false;
+  let frozen = false;
+  let t = 0;
+
+  const noiseSlider = document.getElementById('noise');
+  const noiseVal = document.getElementById('noiseVal');
+  const statusEl = document.getElementById('status');
+  const playBtn = document.getElementById('playBtn');
+  const freezeBtn = document.getElementById('freezeBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  function statusText(n){
+    if (n < 35) return '<span class="holds">Clearly a circle — the hole is obvious.</span>';
+    if (n < 60) return '<span class="holds">Noisy, but the hole still reads clearly.</span>';
+    if (n < 80) return '<span class="fails">Getting ambiguous — is that still a hole?</span>';
+    return '<span class="fails">The hole has filled in — points now reach the centre.</span>';
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // faint guide circle, showing where the points started
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(202,220,252,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Nonlinear ramp: stays gentle (points hug the ring) through low/mid noise,
+    // then opens up enough by the top of the range that displacement exceeds R,
+    // so points can genuinely wander across the centre and fill the hole.
+    const frac = noise/100;
+    const amp = Math.pow(frac, 1.3) * R * 1.35;
+
+    points.forEach((p) => {
+      const x = cx + p.baseX + amp * p.wiggleX(t);
+      const y = cy + p.baseY + amp * p.wiggleY(t);
+
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI*2);
+      const hot = frac;
+      ctx.fillStyle = `rgb(${28 + hot*200}, ${114 - hot*40}, ${147 - hot*100})`;
+      ctx.fill();
+    });
+
+    statusEl.innerHTML = statusText(noise);
+  }
+
+  function loop(){
+    if (!frozen){
+      if (playing){
+        t += 0.035;
+        noise = Math.min(100, noise + 0.6);
+        noiseSlider.value = noise;
+        noiseVal.textContent = Math.round(noise) + '%';
+        if (noise >= 100) playing = false, playBtn.textContent = 'Play';
+      } else {
+        t += 0.02;
+      }
+    }
+    // When frozen, t and noise are simply not updated, so draw() renders
+    // the exact same configuration every frame — a genuinely still snapshot,
+    // not just a very slow animation.
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  noiseSlider.addEventListener('input', () => {
+    noise = parseFloat(noiseSlider.value);
+    noiseVal.textContent = Math.round(noise) + '%';
+    // Scrubbing the slider while frozen still updates the (still motionless)
+    // configuration, so you can dial in a noise level and then freeze it.
+  });
+
+  playBtn.addEventListener('click', () => {
+    if (frozen){ frozen = false; freezeBtn.textContent = 'Freeze'; }
+    playing = !playing;
+    playBtn.textContent = playing ? 'Pause' : 'Play';
+  });
+
+  freezeBtn.addEventListener('click', () => {
+    frozen = !frozen;
+    if (frozen){
+      playing = false;
+      playBtn.textContent = 'Play';
+      freezeBtn.textContent = 'Resume motion';
+    } else {
+      freezeBtn.textContent = 'Freeze';
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    playing = false;
+    frozen = false;
+    playBtn.textContent = 'Play';
+    freezeBtn.textContent = 'Freeze';
+    noise = 0;
+    noiseSlider.value = 0;
+    noiseVal.textContent = '0%';
+  });
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

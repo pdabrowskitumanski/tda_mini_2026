@@ -1,0 +1,69 @@
+# =============================================================
+# Topologiczna Analiza Danych — środowisko do zajęć laboratoryjnych
+# Python 3.10–3.11 zalecane (niektóre pakiety C++/Cython niekompatybilne z 3.12+)
+# =============================================================
+
+# --- Rdzeń naukowy (wszystkie laby) ---
+numpy
+scipy
+pandas
+matplotlib
+seaborn
+jupyterlab
+scikit-learn
+
+# --- Wykład 1: Podstawy topologii, praca z danymi biomolekularnymi ---
+networkx
+biopython          # Bio.PDB — struktury białek, RMSD, wczytywanie ensembli NMR
+topoly             # własne narzędzie prowadzącego — typ węzła, inwarianty splotów
+
+# --- Wykłady 3–5: Geometria wysokowymiarowa, redukcja wymiaru, estymacja wymiaru ---
+umap-learn         # UMAP
+scikit-dimension   # estymatory wymiaru wewnętrznego: TwoNN, MLE (Levina-Bickel), correlation dim
+
+# --- Wykład 6: Dynamika danych — transport optymalny, geodezje, zanurzenia Takensa ---
+POT                # Python Optimal Transport (import jako `ot`) — Sinkhorn, barycentra, geodezje Wassersteina
+giotto-tda         # `gtda.time_series.TakensEmbedding` — zanurzenie z opóźnieniem
+
+# --- Wykłady 9–10: Kompleksy symplicjalne, persistent homology ---
+gudhi              # Rips/Čech/Alpha, persystencja, kompleksy symplicjalne — najbardziej wszechstronny pakiet
+ripser             # szybkie obliczanie perystencji Rips (silnik C++)
+persim             # dystanse i reprezentacje diagramów perystencji (bottleneck, Wasserstein, obrazy)
+cechmate           # niestandardowe filtracje (Alpha, Čech) — uzupełnienie GUDHI
+tadasets           # syntetyczne zbiory danych do testów (sfery, torusy, etc.)
+
+# --- Wykład 11: Statystyka topologiczna ---
+# (persim + gudhi wystarczają do pasm ufności / bootstrap; brak dodatkowego pakietu)
+
+# --- Wykład 12: Reprezentacje persistent homology (landscapes, images) ---
+# (persim.PersistenceImager, gudhi.representations — już pokryte powyżej)
+
+# --- Wykład 13: Persystencja układów dynamicznych ---
+# (giotto-tda już pokrywa Takens embedding + persystencję czasową)
+
+# --- Wykład 14: Mapper algorithm ---
+kmapper            # Kepler Mapper — implementacja + wizualizacja (D3.js/Plotly)
+plotly             # interaktywne wizualizacje grafów Mappera
+
+# --- Wykłady 15–16: Laplasjany perystentne, uogólnienia (snopy/ścieżki/Dirac/Hodge) ---
+# Brak dojrzałych pakietów PyPI — kod dostarczony przez prowadzącego (na bazie scipy.sparse.linalg),
+# adaptowany z repozytoriów towarzyszących pracom Wei i in. (WeilabMSU na GitHubie)
+
+# --- Wykład 16 (Quantum TDA, opcjonalnie) ---
+qiskit             # opcjonalne — demonstracja obwodu estymacji liczb Bettiego
+
+# --- Wykład 17: Persistence Knotting ---
+# (topoly już zainstalowany powyżej — pokrywa mGLI i typ węzła;
+#  kod dla persystentnego wielomianu Jonesa / Khovanov Laplacian dostarczony przez prowadzącego)
+
+# --- Wykłady 18–19: Geometria i krzywizna grafów ---
+GraphRicciCurvature  # krzywizna Olliviera-Ricciego i Formana-Ricciego na grafach networkx
+
+# --- Wykład 20: Topologia reprezentacji ML / Topological Deep Learning ---
+torch
+torch-geometric      # bazowe GNN do porównania z sieciami symplicjalnymi
+toponetx             # struktury danych: kompleksy symplicjalne/komórkowe (ekosystem TopoX)
+topomodelx           # modele sieci neuronowych na domenach topologicznych (ekosystem TopoX)
+
+# --- Wykład 21: Zastosowania biomedyczne ---
+# (biopython, topoly, gudhi, ripser — wszystkie już pokryte powyżej)
