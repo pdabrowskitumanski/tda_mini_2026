@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distance concentration in high dimensions</title>
+<style>
+  :root { --navy:#1E2761; --panel:#2A3470; --well:#232C5E; --ice:#CADCFC; --amber:#E8871E; --teal:#1C7293; --mute:#8E97BC; --paper:#FFFFFF; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:var(--navy); color:var(--paper); font-family: Calibri, 'Segoe UI', Arial, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 18px 16px 28px; }
+  h1 { font-family: Cambria, Georgia, serif; font-size: clamp(20px, 2.6vw, 28px); margin: 0 0 2px; }
+  .sub { color: var(--ice); font-style: italic; font-size: 14px; margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border-radius: 12px; padding: 12px; box-shadow: 0 6px 22px rgba(0,0,0,.3); }
+  canvas { width: 100%; display: block; background: var(--well); border-radius: 8px; }
+  .title { font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--ice); opacity: .85; margin: 0 0 6px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+  .row label { min-width: 104px; font-size: 14px; color: var(--ice); }
+  .row input[type=range] { flex: 1; accent-color: var(--amber); }
+  .row .val { min-width: 62px; text-align: right; font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; }
+  select { background: var(--well); color: var(--paper); border: 1px solid rgba(202,220,252,.4); border-radius: 6px; padding: 5px 8px; font-size: 14px; flex: 1; font-family: inherit; }
+  button { background: var(--amber); color: var(--navy); border: 0; border-radius: 8px; padding: 7px 12px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+  button.ghost { background: transparent; color: var(--ice); border: 1px solid var(--ice); }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid rgba(202,220,252,.15); font-size: 14px; }
+  .stat:last-child { border-bottom: 0; }
+  .stat b { font-family: Cambria, Georgia, serif; font-size: 20px; color: var(--amber); font-variant-numeric: tabular-nums; }
+  .stat small { color: var(--mute); font-size: 12px; margin-left: 6px; }
+  .msg { margin-top: 10px; font-size: 14px; color: var(--ice); min-height: 40px; line-height: 1.4; }
+  .hidden { display: none; }
+  .note { margin-top: 12px; font-size: 12.5px; color: var(--mute); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Distances in high dimensions</h1>
+  <div class="sub">Distances from one query point to n random points: watch the histogram narrow as the dimension grows.</div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <p class="title">Distances from the query point</p>
+        <canvas id="hist" width="720" height="330"></canvas>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <p class="title">Relative contrast (D<sub>max</sub> − D<sub>min</sub>) / D<sub>min</sub> against d (log–log)</p>
+        <canvas id="curve" width="720" height="260"></canvas>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <p class="title">Data model</p>
+        <div class="row"><label for="model">Points</label>
+          <select id="model">
+            <option value="cube">Uniform in the cube [0,1]^d</option>
+            <option value="gauss">Gaussian N(0, I_d)</option>
+            <option value="plane">k-dim. data inside R^d (+ noise)</option>
+          </select></div>
+        <div class="row"><label for="dsl">Dimension d</label><input id="dsl" type="range" min="0" max="100" value="60"><span class="val" id="dval">100</span></div>
+        <div class="row"><label for="nsl">Points n</label><input id="nsl" type="range" min="100" max="3000" step="100" value="1000"><span class="val" id="nval">1000</span></div>
+        <div class="row plane hidden"><label for="ksl">Intrinsic k</label><input id="ksl" type="range" min="1" max="50" value="2"><span class="val" id="kval">2</span></div>
+        <div class="row plane hidden"><label for="ssl">Noise σ</label><input id="ssl" type="range" min="0" max="0.1" step="0.001" value="0"><span class="val" id="sval">0.000</span></div>
+        <div class="btns">
+          <button id="resample">Resample</button>
+          <button class="ghost" id="p1">Cube, d = 1000</button>
+          <button class="ghost" id="p2">Plane k=2 in d=1000</button>
+          <button class="ghost" id="p3">… plus noise</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <p class="title">Readout</p>
+        <div class="stat"><span>mean D</span><span><b id="mean">–</b><small id="meanT"></small></span></div>
+        <div class="stat"><span>std D</span><span><b id="std">–</b><small id="stdT"></small></span></div>
+        <div class="stat"><span>std / mean</span><span><b id="rel">–</b></span></div>
+        <div class="stat"><span>contrast</span><span><b id="con">–</b></span></div>
+        <div class="stat"><span>D<sub>max</sub> / D<sub>min</sub></span><span><b id="ratio">–</b></span></div>
+        <div class="msg" id="msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    Asymptotic predictions (shown beside the readouts): cube — mean ≈ √(d/6), std ≈ 0.22; Gaussian — mean ≈ √(2d), std ≈ 0.87 (distances from a fixed query; between two random points the spreads are 0.24 and 1).
+    The dashed line in the lower plot has slope −1/2, the predicted ∼ √(ln n / d) scaling. In “k-dim. data” mode the first k coordinates
+    are uniform in [0,1] and every one of the d coordinates gets independent N(0, σ²) noise: with σ = 0 the ambient dimension changes nothing.
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const NAVY='#1E2761', ICE='#CADCFC', AMBER='#E8871E', TEAL='#1C7293', MUTE='#8E97BC';
+
+  function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+  function makeGauss(rng){ let spare=null; return function(){ if(spare!==null){ const s=spare; spare=null; return s; }
+      let u=0,v=0; while(u===0) u=rng(); v=rng(); const r=Math.sqrt(-2*Math.log(u)); spare=r*Math.sin(2*Math.PI*v); return r*Math.cos(2*Math.PI*v); }; }
+
+  let seed = 12345, token = 0;
+  const state = { model:'cube', d:100, n:1000, k:2, sigma:0 };
+
+  function sampleDistances(model, d, n, k, sigma, seedv){
+    const rng = mulberry32(seedv), gauss = makeGauss(rng);
+    const kk = Math.min(k, d);
+    const coord = (j) => {
+      if (model==='cube') return rng();
+      if (model==='gauss') return gauss();
+      let x = (j<kk) ? rng() : 0;
+      if (sigma>0) x += sigma*gauss();
+      return x;
+    };
+    const q = new Float64Array(d);
+    for (let j=0;j<d;j++) q[j] = coord(j);
+    const D = new Float64Array(n);
+    for (let i=0;i<n;i++){
+      let s=0;
+      for (let j=0;j<d;j++){ const df = coord(j)-q[j]; s += df*df; }
+      D[i] = Math.sqrt(s);
+    }
+    return D;
+  }
+  function stats(D){
+    let sum=0, mn=Infinity, mx=-Infinity;
+    for (const v of D){ sum+=v; if(v<mn) mn=v; if(v>mx) mx=v; }
+    const mean=sum/D.length; let ss=0; for (const v of D) ss+=(v-mean)*(v-mean);
+    return { mean, std:Math.sqrt(ss/D.length), min:mn, max:mx };
+  }
+  const fmt = (x) => (x>=100 ? x.toFixed(1) : x>=10 ? x.toFixed(2) : x.toFixed(3));
+
+  function drawHist(D, st){
+    const c = $('hist'), ctx = c.getContext('2d'), W=c.width, H=c.height;
+    ctx.clearRect(0,0,W,H);
+    const L=48, R=14, T=16, B=40, pw=W-L-R, ph=H-T-B;
+    const xmax = st.max*1.08, nb = 50, bins = new Array(nb).fill(0);
+    for (const v of D){ bins[Math.min(nb-1, Math.floor(v/xmax*nb))]++; }
+    const ymax = Math.max(...bins)*1.1;
+    ctx.strokeStyle='rgba(202,220,252,.25)'; ctx.fillStyle=MUTE; ctx.font='12px Calibri, sans-serif'; ctx.lineWidth=1;
+    for (let i=0;i<=4;i++){ const y=T+ph-ph*i/4; ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+pw,y); ctx.stroke();
+      ctx.textAlign='right'; ctx.fillText(Math.round(ymax*i/4), L-6, y+4); }
+    for (let i=0;i<=5;i++){ const x=L+pw*i/5; ctx.textAlign='center'; ctx.fillText((xmax*i/5).toPrecision(3), x, T+ph+16); }
+    ctx.fillStyle=TEAL;
+    const bw = pw/nb;
+    bins.forEach((b,i)=>{ const h=ph*b/ymax; ctx.fillRect(L+i*bw+1, T+ph-h, bw-2, h); });
+    const xm = (v)=> L + pw*v/xmax;
+    ctx.setLineDash([5,4]); ctx.lineWidth=2;
+    ctx.strokeStyle=AMBER; ctx.beginPath(); ctx.moveTo(xm(st.min),T); ctx.lineTo(xm(st.min),T+ph); ctx.stroke();
+    ctx.strokeStyle=ICE; ctx.beginPath(); ctx.moveTo(xm(st.max),T); ctx.lineTo(xm(st.max),T+ph); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font='bold 12px Calibri, sans-serif'; ctx.fillStyle=AMBER; ctx.textAlign=(xm(st.min)>L+pw*0.5?'right':'left');
+    ctx.fillText('nearest', xm(st.min)+(xm(st.min)>L+pw*0.5?-6:6), T+12);
+    ctx.fillStyle=ICE; ctx.textAlign='right'; ctx.fillText('farthest', xm(st.max)-6, T+28);
+    ctx.fillStyle=MUTE; ctx.textAlign='center'; ctx.font='12px Calibri, sans-serif'; ctx.fillText('distance D', L+pw/2, H-6);
+  }
+
+  const dGrid = [1,2,3,5,10,20,50,100,200,500,1000,2000];
+  function drawCurve(points, dNow){
+    const c = $('curve'), ctx = c.getContext('2d'), W=c.width, H=c.height;
+    ctx.clearRect(0,0,W,H);
+    const L=52, R=14, T=12, B=38, pw=W-L-R, ph=H-T-B;
+    const xlo=Math.log10(1), xhi=Math.log10(3000), ylo=-2, yhi=3;
+    const X=(d)=>L+pw*(Math.log10(d)-xlo)/(xhi-xlo);
+    const Y=(v)=>T+ph-ph*(Math.min(yhi,Math.max(ylo,Math.log10(Math.max(v,1e-9))))-ylo)/(yhi-ylo);
+    ctx.strokeStyle='rgba(202,220,252,.25)'; ctx.fillStyle=MUTE; ctx.font='12px Calibri, sans-serif'; ctx.lineWidth=1;
+    for (let e=ylo;e<=yhi;e++){ const y=Y(Math.pow(10,e)); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+pw,y); ctx.stroke(); ctx.textAlign='right'; ctx.fillText('10^'+e, L-6, y+4); }
+    [1,10,100,1000].forEach(d=>{ const x=X(d); ctx.beginPath(); ctx.moveTo(x,T); ctx.lineTo(x,T+ph); ctx.stroke(); ctx.textAlign='center'; ctx.fillText(d, x, T+ph+16); });
+    ctx.fillText('dimension d', L+pw/2, H-6);
+    ctx.save(); ctx.translate(14, T+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText('contrast', 0, 0); ctx.restore();
+    if (!points) return;
+    // reference slope -1/2 anchored at d = 100
+    const anchor = points.find(p=>p.d===100);
+    if (anchor && anchor.v>0){
+      ctx.setLineDash([6,5]); ctx.strokeStyle=ICE; ctx.lineWidth=1.5; ctx.beginPath();
+      [1,3000].forEach((d,i)=>{ const v=anchor.v*Math.sqrt(100/d); const x=X(d), y=Y(v); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.strokeStyle=AMBER; ctx.lineWidth=2.5; ctx.beginPath();
+    points.forEach((p,i)=>{ const x=X(p.d), y=Y(p.v); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.stroke(); ctx.fillStyle=AMBER;
+    points.forEach(p=>{ ctx.beginPath(); ctx.arc(X(p.d),Y(p.v),3.5,0,7); ctx.fill(); });
+    ctx.setLineDash([3,4]); ctx.strokeStyle=TEAL; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(X(dNow),T); ctx.lineTo(X(dNow),T+ph); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  function update(){
+    const { model, d, n, k, sigma } = state;
+    const D = sampleDistances(model, d, n, k, sigma, seed);
+    const st = stats(D);
+    const contrast = (st.max-st.min)/st.min;
+    $('mean').textContent = fmt(st.mean); $('std').textContent = fmt(st.std);
+    $('rel').textContent = (st.std/st.mean).toFixed(3); $('con').textContent = contrast>=100? contrast.toFixed(0) : contrast.toFixed(3);
+    $('ratio').textContent = (st.max/st.min).toFixed(2);
+    $('meanT').textContent = model==='cube' ? ('≈ '+fmt(Math.sqrt(d/6))) : model==='gauss' ? ('≈ '+fmt(Math.sqrt(2*d))) : '';
+    $('stdT').textContent = model==='cube' ? '≈ 0.22' : model==='gauss' ? '≈ 0.87' : '';
+    const r = st.max/st.min;
+    $('msg').textContent = r < 1.2
+      ? `The farthest point is only ${((r-1)*100).toFixed(0)}% farther than the nearest: “nearest neighbour” has almost no meaning here.`
+      : r < 2
+      ? `Weak contrast: the farthest point is only ${((r-1)*100).toFixed(0)}% farther than the nearest.`
+      : `The farthest point is ${r.toFixed(1)}× as far as the nearest: near and far are clearly different.`;
+    drawHist(D, st);
+    const my = ++token;
+    drawCurve(null, d);
+    setTimeout(()=>{
+      if (my!==token) return;
+      const pts=[];
+      for (const dd of dGrid){
+        const Dg = sampleDistances(model, dd, n, k, sigma, seed+dd);
+        const sg = stats(Dg); pts.push({ d:dd, v:(sg.max-sg.min)/sg.min });
+      }
+      if (my===token) drawCurve(pts, d);
+    }, 20);
+  }
+
+  function dFromSlider(v){ return Math.max(1, Math.round(Math.pow(10, 3.301*v/100))); }
+  function sliderFromD(d){ return Math.round(100*Math.log10(d)/3.301); }
+  function syncUI(){
+    $('dsl').value = sliderFromD(state.d); $('dval').textContent = state.d;
+    $('nsl').value = state.n; $('nval').textContent = state.n;
+    $('ksl').value = state.k; $('kval').textContent = state.k;
+    $('ssl').value = state.sigma; $('sval').textContent = state.sigma.toFixed(3);
+    $('model').value = state.model;
+    document.querySelectorAll('.plane').forEach(el=>el.classList.toggle('hidden', state.model!=='plane'));
+  }
+  $('model').addEventListener('change', e=>{ state.model=e.target.value; syncUI(); update(); });
+  $('dsl').addEventListener('input', e=>{ state.d=dFromSlider(+e.target.value); $('dval').textContent=state.d; update(); });
+  $('nsl').addEventListener('input', e=>{ state.n=+e.target.value; $('nval').textContent=state.n; update(); });
+  $('ksl').addEventListener('input', e=>{ state.k=+e.target.value; $('kval').textContent=state.k; update(); });
+  $('ssl').addEventListener('input', e=>{ state.sigma=+e.target.value; $('sval').textContent=state.sigma.toFixed(3); update(); });
+  $('resample').addEventListener('click', ()=>{ seed = (seed*1103515245 + 12345) % 2147483647; update(); });
+  $('p1').addEventListener('click', ()=>{ Object.assign(state,{model:'cube', d:1000, k:2, sigma:0}); syncUI(); update(); });
+  $('p2').addEventListener('click', ()=>{ Object.assign(state,{model:'plane', d:1000, k:2, sigma:0}); syncUI(); update(); });
+  $('p3').addEventListener('click', ()=>{ Object.assign(state,{model:'plane', d:1000, k:2, sigma:0.03}); syncUI(); update(); });
+
+  window.__demo = { state, update, sampleDistances, stats };
+  syncUI(); update();
+})();
+</script>
+</body>
+</html>
