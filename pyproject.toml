@@ -18,6 +18,7 @@ dependencies = [
     "plotly",
     "pot",
     "qiskit",
+    "rdkit>=2026.9.1",
     "ripser",
     "scikit-dimension",
     "scikit-learn",
