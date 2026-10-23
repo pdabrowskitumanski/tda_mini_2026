@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 8 — The dimension of a network's representation</title>
+<style>
+:root { color-scheme: light dark; --bg:#FFFFFF; --card:#F2F4FB; --ink:#2B2B33; --mute:#6E7691; --navy:#1E2761; --ice:#CADCFC; --amber:#E8871E; --teal:#1C7293; --grid:#E3E7F0; --grey:#7C86A8; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12163A; --card:#1B2358; --ink:#E8ECF8; --mute:#9AA3C7; --navy:#CADCFC; --grid:#2F3A78; --teal:#5BB8D6; --grey:#A7B0D0; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 18px 20px 28px; }
+h1 { font-family: Cambria, Georgia, serif; font-size: 26px; margin: 0 0 4px; color: var(--navy); }
+.sub { color: var(--mute); font-style: italic; margin-bottom: 14px; font-size: 15px; }
+.ctrl { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+.grp { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.grp > b { color: var(--navy); font-size: 14.5px; }
+label.sw { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14.5px; }
+label.sw i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+select { font-family: inherit; font-size: 14px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--grid); background: var(--bg); color: var(--ink); }
+.seg button { border: 1px solid var(--grid); background: var(--bg); color: var(--ink); padding: 4px 12px; font-size: 14px; font-family: inherit; cursor: pointer; }
+.seg button:first-child { border-radius: 8px 0 0 8px; } .seg button:last-child { border-radius: 0 8px 8px 0; }
+.seg button.on { background: var(--navy); color: var(--bg); border-color: var(--navy); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.panel { background: var(--card); border-radius: 10px; padding: 10px 12px 12px; }
+.panel h2 { margin: 2px 0 2px; font-size: 15px; color: var(--navy); font-family: Cambria, Georgia, serif; }
+.panel p.cap { margin: 0 0 4px; font-size: 13px; color: var(--mute); }
+svg { width: 100%; height: auto; display: block; }
+svg text { font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--ink); }
+.row { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; margin-top: 12px; }
+@media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+.box { background: var(--card); border-radius: 10px; padding: 10px 14px; font-size: 15px; line-height: 1.4; }
+.box b { color: var(--navy); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { text-align: left; color: var(--navy); border-bottom: 1px solid var(--grid); padding: 4px 6px; }
+td { padding: 4px 6px; border-bottom: 1px solid var(--grid); }
+td.n, th.n { text-align: right; }
+.foot { color: var(--mute); font-size: 12.5px; margin-top: 12px; font-style: italic; line-height: 1.45; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The dimension of a network&rsquo;s representation</h1>
+  <div class="sub" id="sub"></div>
+  <div class="ctrl">
+    <div class="grp"><b>Network</b><span id="series"></span></div>
+    <div class="grp"><b>Images</b><span class="seg" id="pts"><button data-v="test" class="on">test</button><button data-v="train">training</button></span></div>
+    <div class="grp"><b>Scale probe</b><select id="dec"><option value="all">all points</option><option value="half">half of the points</option><option value="quarter">a quarter of the points</option></select></div>
+  </div>
+  <div class="grid">
+    <div class="panel"><h2>Intrinsic dimension (TwoNN) per layer</h2><p class="cap">line: mean of 3 training runs; band: the range over the runs</p><svg id="idp" viewBox="0 0 560 380"></svg></div>
+    <div class="panel"><h2>Linear dimension per layer</h2><p class="cap">number of principal components needed for 95% of the variance (mean of 3 runs)</p><svg id="pcap" viewBox="0 0 560 380"></svg></div>
+  </div>
+  <div class="row">
+    <div class="box" id="msg"></div>
+    <div class="box"><table id="acc"></table></div>
+  </div>
+  <div class="foot">Digits: 1797 images in 64 dimensions, 60% for training. Network: three hidden layers of 256 ReLU units, Adam, no regularisation. &ldquo;Real labels&rdquo;: trained on the true labels. &ldquo;Random labels&rdquo;: trained on shuffled labels until the training accuracy is 100%, so the network memorises. &ldquo;Untrained&rdquo;: the random initial weights. Three runs with different initialisations. The pattern follows Ansuini et al. (NeurIPS 2019), but this is a small network: the pronounced early rise of their large networks is not reproduced.</div>
+</div>
+<script>
+const DATA = {"seeds":3,"acc":{"real":[1.0,0.979],"random":[1.0,0.077],"untrained":[0.095,0.102]},"id":{"real":{"test":{"all":[[7.742,7.742,7.742],[7.921,7.453,7.599],[6.725,6.82,6.514],[5.832,6.019,5.723]],"half":[[7.544,7.533,7.086],[7.38,6.933,7.136],[6.111,6.21,6.339],[5.6,5.247,5.383]],"quarter":[[6.758,6.967,6.89],[6.76,6.91,6.956],[5.773,5.718,5.906],[4.963,5.342,5.381]]},"train":{"all":[[8.565,8.565,8.565],[8.228,8.143,8.206],[6.74,7.137,6.944],[5.606,6.153,5.973]],"half":[[7.959,7.834,7.639],[7.632,7.851,7.866],[6.529,6.883,6.769],[5.585,5.801,5.605]],"quarter":[[7.551,7.06,7.229],[7.247,6.978,7.289],[6.215,6.261,6.159],[5.522,5.353,5.27]]}},"random":{"test":{"all":[[7.742,7.742,7.742],[8.241,8.008,8.607],[7.807,7.813,8.303],[7.878,8.005,8.503]],"half":[[7.544,7.533,7.086],[7.56,7.539,7.876],[7.166,7.314,7.822],[8.081,8.142,8.43]],"quarter":[[6.758,6.967,6.89],[7.298,7.048,7.57],[7.309,7.146,7.66],[8.465,8.671,8.817]]},"train":{"all":[[8.565,8.565,8.565],[8.546,8.461,8.925],[8.869,8.75,8.621],[8.914,9.023,9.259]],"half":[[7.959,7.834,7.639],[7.77,8.005,8.564],[8.283,8.207,8.426],[8.989,9.086,9.582]],"quarter":[[7.551,7.06,7.229],[7.364,7.47,8.187],[7.454,7.689,8.474],[9.135,9.327,8.88]]}},"untrained":{"test":{"all":[[7.742,7.742,7.742],[8.172,7.7,7.906],[8.496,7.982,8.364],[8.553,8.378,8.834]],"half":[[7.544,7.533,7.086],[7.599,7.345,7.765],[7.531,7.719,8.238],[7.833,8.012,8.19]],"quarter":[[6.758,6.967,6.89],[7.142,7.231,7.464],[7.403,7.692,7.453],[7.289,8.056,8.129]]},"train":{"all":[[8.565,8.565,8.565],[8.853,9.028,8.594],[8.743,8.852,8.528],[8.82,8.879,8.607]],"half":[[7.959,7.834,7.639],[8.139,8.218,8.285],[8.357,8.088,8.165],[8.21,8.21,8.501]],"quarter":[[7.551,7.06,7.229],[7.588,7.416,7.54],[7.558,7.682,8.009],[7.851,7.236,7.81]]}}},"pca":{"real":{"test":[[28,28,28],[31,29,29],[11,10,10],[8,8,7]],"train":[[28,28,28],[32,29,29],[11,10,10],[8,8,7]]},"random":{"test":[[28,28,28],[75,75,86],[82,74,93],[27,24,28]],"train":[[28,28,28],[79,79,91],[87,80,99],[26,24,28]]},"untrained":{"test":[[28,28,28],[47,43,47],[57,51,58],[61,54,59]],"train":[[28,28,28],[48,44,48],[58,52,59],[62,55,60]]}}};
+const SER = [["real", "real labels", "var(--teal)"], ["random", "random labels (memorised)", "var(--amber)"], ["untrained", "untrained", "var(--grey)"]];
+const LAYERS = ["input", "hidden 1", "hidden 2", "hidden 3"];
+const on = { real: true, random: true, untrained: true }; let pts = "test", dec = "all";
+const $ = (id) => document.getElementById(id), NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent, text) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text !== undefined) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+function niceStep(max, target) { const raw = max / target, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+function chart(svgId, getSeries, ymax, fmt) {
+  const svg = $(svgId); svg.innerHTML = ""; const W = 560, H = 380, l = 50, r = 20, t = 18, b = 44, n = LAYERS.length;
+  const X = (i) => l + 40 + i * (W - l - r - 80) / (n - 1), Y = (v) => t + (H - t - b) * (1 - v / ymax), step = niceStep(ymax, 5);
+  for (let v = 0; v <= ymax + 1e-9; v += step) { el("line", { x1: l, x2: W - r, y1: Y(v), y2: Y(v), stroke: "var(--grid)" }, svg); el("text", { x: l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 12, style: "fill:var(--mute)" }, svg, +v.toFixed(2)); }
+  LAYERS.forEach((nm, i) => el("text", { x: X(i), y: H - b + 20, "text-anchor": "middle", "font-size": 13 }, svg, nm));
+  SER.forEach(([k, lab, col]) => {
+    if (!on[k]) return; const s = getSeries(k), mn = s.map((v) => Math.min(...v)), mx = s.map((v) => Math.max(...v)), me = s.map(mean);
+    el("polygon", { points: mx.map((v, i) => `${X(i)},${Y(v)}`).concat(mn.map((v, i) => `${X(n - 1 - i)},${Y(mn[n - 1 - i])}`)).join(" "), fill: col, opacity: 0.18 }, svg);
+    el("polyline", { points: me.map((v, i) => `${X(i)},${Y(v)}`).join(" "), fill: "none", stroke: col, "stroke-width": 3 }, svg);
+    const idx = SER.findIndex((s) => s[0] === k), first = SER.findIndex((s) => on[s[0]]) === idx, dy = idx === 0 ? 20 : -9, dx = idx === 2 ? 12 : 8;
+    me.forEach((v, i) => { el("circle", { cx: X(i), cy: Y(v), r: 5, fill: col }, svg); if (i === 0 && !first) return; el("text", { x: X(i) + dx, y: Y(v) + dy, "font-size": 12.5, "font-weight": "bold", style: `fill:${col}` }, svg, fmt(v)); });
+  });
+}
+function draw() {
+  $("sub").textContent = `A small ReLU network on handwritten digits. Layer by layer, how many numbers describe the activations of ${pts === "test" ? "719 test" : "1078 training"} images?`;
+  const idOf = (k) => DATA.id[k][pts][dec], pcaOf = (k) => DATA.pca[k][pts];
+  let idMax = 0, pcMax = 0; SER.forEach(([k]) => { if (!on[k]) return; DATA.id[k][pts][dec].forEach((v) => idMax = Math.max(idMax, ...v)); DATA.pca[k][pts].forEach((v) => pcMax = Math.max(pcMax, ...v)); });
+  chart("idp", idOf, Math.max(idMax * 1.15, 4), (v) => v.toFixed(1));
+  chart("pcap", pcaOf, Math.max(pcMax * 1.15, 10), (v) => Math.round(v));
+  const last = (k) => idOf(k)[3], lo = (k) => Math.min(...last(k)), hi = (k) => Math.max(...last(k));
+  const parts = SER.filter(([k]) => on[k]).map(([k, lab]) => `<b>${lab}</b>: ${mean(last(k)).toFixed(1)} (${lo(k).toFixed(1)} to ${hi(k).toFixed(1)})`);
+  let read = "";
+  if (on.real) {
+    read = `<b>Read it.</b> The network that generalises (real labels) ends with an ID of about ${mean(last("real")).toFixed(1)}`;
+    if (on.random) read += `; the one that memorised random labels ends at ${mean(last("random")).toFixed(1)}`;
+    if (on.untrained) read += `${on.random ? ", and" : "; "} the untrained one at ${mean(last("untrained")).toFixed(1)}`;
+    read += ".";
+  }
+  if (on.random) {
+    const mid = [1, 2].flatMap((L) => pcaOf("random")[L]), idm = mean([1, 2].map((L) => mean(idOf("random")[L])));
+    read += ` The linear dimension (right) is a different quantity: for the memorising network it reaches ${Math.min(...mid)} to ${Math.max(...mid)} components in the middle layers while its intrinsic dimension stays near ${idm.toFixed(0)}.`;
+  }
+  $("msg").innerHTML = `<b>ID of the last hidden layer</b> (${pts === "test" ? "test" : "training"} images, ${dec === "all" ? "all points" : dec === "half" ? "half of the points" : "a quarter of the points"}):<br>${parts.join("<br>") || "choose a network"}<br><br>${read}`;
+  const rows = SER.map(([k, lab, col]) => `<tr><td><span style="color:${col}">&#9679;</span> ${lab}</td><td class="n">${(DATA.acc[k][0] * 100).toFixed(0)}%</td><td class="n">${(DATA.acc[k][1] * 100).toFixed(1)}%</td></tr>`).join("");
+  $("acc").innerHTML = `<tr><th>accuracy (mean of 3 runs)</th><th class="n">training</th><th class="n">test</th></tr>${rows}`;
+}
+$("series").innerHTML = SER.map(([k, lab, col]) => `<label class="sw"><input type="checkbox" data-k="${k}" checked><i style="background:${col}"></i>${lab}</label>`).join(" ");
+document.querySelectorAll("#series input").forEach((c) => c.onchange = () => { on[c.dataset.k] = c.checked; draw(); });
+document.querySelectorAll("#pts button").forEach((b) => b.onclick = () => { pts = b.dataset.v; document.querySelectorAll("#pts button").forEach((x) => x.classList.toggle("on", x === b)); draw(); });
+$("dec").onchange = (e) => { dec = e.target.value; draw(); };
+draw();
+</script>
+</body>
+</html>
