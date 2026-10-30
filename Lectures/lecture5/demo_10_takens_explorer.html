@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 10 — Takens delay-embedding explorer</title>
+<style>
+:root { color-scheme: light dark; --bg:#FFFFFF; --card:#F2F4FB; --ink:#2B2B33; --mute:#6E7691; --navy:#1E2761; --ice:#CADCFC; --amber:#E8871E; --teal:#1C7293; --grid:#E3E7F0; --good:#2E8B72; --bad:#C94F4F; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12163A; --card:#1B2358; --ink:#E8ECF8; --mute:#9AA3C7; --navy:#CADCFC; --grid:#2F3A78; --teal:#5BB8D6; --good:#5FC9AA; --bad:#F07A7A; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 18px 20px 28px; }
+h1 { font-family: Cambria, Georgia, serif; font-size: 26px; margin: 0 0 4px; color: var(--navy); }
+.sub { color: var(--mute); font-style: italic; margin-bottom: 12px; font-size: 15px; }
+.ctrl { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14.5px; }
+.grp b { color: var(--navy); }
+.grp input[type=range] { accent-color: var(--amber); width: 160px; }
+.val { min-width: 40px; font-weight: bold; color: var(--amber); }
+select { font-family: inherit; font-size: 14px; padding: 3px 8px; border-radius: 8px; border: 1px solid var(--grid); background: var(--bg); color: var(--ink); }
+.chip { border: 1px solid var(--grid); background: var(--bg); color: var(--ink); padding: 4px 11px; border-radius: 14px; cursor: pointer; font-size: 13.5px; font-family: inherit; }
+.chip.on { background: var(--navy); color: var(--bg); border-color: var(--navy); }
+button.go { font-family: inherit; font-size: 13.5px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--amber); background: transparent; color: var(--amber); cursor: pointer; }
+.grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 14px; }
+@media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+.panel { background: var(--card); border-radius: 10px; padding: 10px 12px 12px; }
+.panel h2 { margin: 2px 0 6px; font-size: 15px; color: var(--navy); font-family: Cambria, Georgia, serif; }
+canvas { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 6px; cursor: grab; }
+svg { width: 100%; height: auto; display: block; }
+svg text { font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--ink); }
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+@media (max-width: 960px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: var(--card); border-radius: 10px; padding: 8px 12px; }
+.stat .k { font-size: 12.5px; color: var(--mute); }
+.stat .v { font-size: 21px; font-weight: bold; color: var(--navy); font-family: Cambria, Georgia, serif; }
+.note { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-top: 12px; font-size: 14.5px; line-height: 1.45; }
+.note b { color: var(--navy); }
+.foot { color: var(--mute); font-size: 12.5px; margin-top: 12px; font-style: italic; line-height: 1.45; }
+.small { color: var(--mute); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Takens delay-embedding explorer</h1>
+  <div class="sub">We record one number x(t). Delay vectors (x(t), x(t+&tau;), &hellip;) rebuild a picture. How many delays, which delay, and is it deterministic at all?</div>
+  <div class="ctrl">
+    <div class="grp"><b>Signal</b>
+      <button class="chip on" data-sig="lorenz">Lorenz</button><button class="chip" data-sig="rossler">R&ouml;ssler</button><button class="chip" data-sig="torus">two sines</button><button class="chip" data-sig="sine">one sine</button><button class="chip" data-sig="white">white noise</button></div>
+    <div class="grp"><b>noise</b><input type="range" id="noise" min="0" max="20" step="1" value="0"><span class="val" id="noisev"></span></div>
+  </div>
+  <div class="ctrl">
+    <div class="grp"><b>delay &tau;</b><input type="range" id="tau" min="1" max="64" step="1" value="8"><span class="val" id="tauv"></span><button class="go" id="useMI">use the first MI minimum</button></div>
+    <div class="grp"><b>delays m</b><input type="range" id="m" min="1" max="8" step="1" value="3"><span class="val" id="mv"></span></div>
+    <div class="grp"><b>points for the estimates</b><select id="npts"><option value="1000">1000 (fast)</option><option value="1500" selected>1500</option><option value="2500">2500 (slower)</option></select></div>
+    <div class="grp"><button class="go" id="rot">pause rotation</button><span class="small" id="timing"></span></div>
+  </div>
+  <div class="grid">
+    <div class="panel"><h2>The delay picture (first three coordinates; drag to rotate)</h2><canvas id="cv" width="760" height="520"></canvas></div>
+    <div class="panel">
+      <h2>What we measure: x(t)</h2><svg id="ts" viewBox="0 0 560 120"></svg>
+      <div class="charts">
+        <div><h2>Dimension of the delay cloud</h2><svg id="chTwo" viewBox="0 0 280 200"></svg></div>
+        <div><h2>False nearest neighbours</h2><svg id="chFnn" viewBox="0 0 280 200"></svg></div>
+        <div><h2>False neighbours (m = 2) against &tau;</h2><svg id="chTau" viewBox="0 0 280 200"></svg></div>
+        <div><h2>Mutual information and autocorrelation</h2><svg id="chMi" viewBox="0 0 280 200"></svg></div>
+      </div>
+    </div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="note" id="note"></div>
+  <div class="foot">Everything is computed in your browser from a fresh simulation (Lorenz, R&ouml;ssler) or an exact formula. The signal is standardised, then observational noise with the chosen percentage of its standard deviation is added. A random subset of delay vectors (1000, 1500 or 2500, your choice) is used for the two estimators, with brute-force neighbour search; with few points the dimension at large m is biased low (try the three settings at m = 8 for white noise). <b>Dimension:</b> the TwoNN estimator of Lecture 5 (maximum likelihood on the ratio of the first two neighbour distances). <b>False neighbours:</b> Kennel's criterion with ratio 10; neighbours closer than 200 samples in time are excluded. <b>Delay choice:</b> the first minimum of the mutual information (32 bins), and the first zero of the autocorrelation.</div>
+</div>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id), NS = "http://www.w3.org/2000/svg";
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r) { let u = 0; while (u === 0) u = r(); const v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+const LMAX = 60000;
+
+// ---------------- the signals ----------------
+function rk4(f, s, dt) { const k1 = f(s), k2 = f(s.map((v, i) => v + dt / 2 * k1[i])), k3 = f(s.map((v, i) => v + dt / 2 * k2[i])), k4 = f(s.map((v, i) => v + dt * k3[i])); return s.map((v, i) => v + dt / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])); }
+function integrate(f, s0, dtInt, every, transient, count) { let s = s0.slice(); const out = new Float64Array(count); for (let i = 0; i < transient * every; i++) s = rk4(f, s, dtInt); for (let k = 0; k < count; k++) { for (let j = 0; j < every; j++) s = rk4(f, s, dtInt); out[k] = s[0]; } return out; }
+function standardise(x) { let m = 0; for (const v of x) m += v; m /= x.length; let q = 0; for (const v of x) q += (v - m) ** 2; q = Math.sqrt(q / x.length); return Float64Array.from(x, (v) => (v - m) / q); }
+const SIGNALS = {
+  lorenz: { name: "Lorenz", dt: 0.02, tau: 8, make: () => integrate((s) => [10 * (s[1] - s[0]), s[0] * (28 - s[2]) - s[1], s[0] * s[1] - 8 / 3 * s[2]], [1, 1, 1], 0.01, 2, 3000, 14000), noisy: true },
+  rossler: { name: "R\u00f6ssler", dt: 0.1, tau: 15, make: () => integrate((s) => [-s[1] - s[2], s[0] + 0.2 * s[1], 0.2 + s[2] * (s[0] - 5.7)], [1, 1, 0], 0.025, 4, 3000, 14000), noisy: true },
+  torus: { name: "two sines", dt: 0.05, tau: 5, make: () => Float64Array.from({ length: LMAX }, (_, i) => Math.sin(i * 0.05) + Math.sin(Math.SQRT2 * i * 0.05)), noisy: true },
+  sine: { name: "one sine", dt: 0.05, tau: 31, make: () => Float64Array.from({ length: LMAX }, (_, i) => Math.sin(i * 0.05)), noisy: true },
+  white: { name: "white noise", dt: 0.05, tau: 5, make: () => { const r = mulberry32(7); return Float64Array.from({ length: LMAX }, () => gauss(r)); }, noisy: false },
+};
+const CACHE = {}; let SIG = "lorenz", noiseArr = null;
+function clean(sig) { if (!CACHE[sig]) CACHE[sig] = standardise(SIGNALS[sig].make()); return CACHE[sig]; }
+function noiseVec() { if (!noiseArr) { const r = mulberry32(123); noiseArr = Float64Array.from({ length: LMAX }, () => gauss(r)); } return noiseArr; }
+function series() { const c = clean(SIG), p = +$("noise").value / 100, nz = noiseVec(); return p === 0 ? c : Float64Array.from(c, (v, i) => v + p * nz[i]); }
+
+// ---------------- analysis ----------------
+function subsample(x, tau, mMax, n, seed) { const maxIdx = x.length - mMax * tau - 1, r = mulberry32(seed), pick = new Set(); while (pick.size < n) pick.add(Math.floor(r() * maxIdx)); return Int32Array.from([...pick].sort((a, b) => a - b)); }
+function analyse(x, tau, mMax) {
+  const n = +$("npts").value, idx = subsample(x, tau, mMax + 1, n, 11), D2 = new Float64Array(n * n), two = [], fnn = [], W = 200;
+  for (let m = 1; m <= mMax; m++) {
+    const k = m - 1, v = Float64Array.from(idx, (i) => x[i + k * tau]);
+    for (let a = 0; a < n; a++) { const va = v[a], row = a * n; for (let b = 0; b < n; b++) { const d = va - v[b]; D2[row + b] += d * d; } }
+    let sumln = 0, cnt = 0, bad = 0, tot = 0;
+    for (let a = 0; a < n; a++) {
+      let r1 = Infinity, r2 = Infinity, nn = -1, nnd = Infinity; const row = a * n;
+      for (let b = 0; b < n; b++) { if (b === a) continue; const d = D2[row + b]; if (d < r1) { r2 = r1; r1 = d; } else if (d < r2) r2 = d; if (Math.abs(idx[a] - idx[b]) > W && d < nnd) { nnd = d; nn = b; } }
+      if (r1 > 0 && r2 > r1 * (1 + 1e-12)) { sumln += 0.5 * Math.log(r2 / r1); cnt++; }
+      if (m < mMax && nn >= 0 && nnd > 0) { tot++; if (Math.abs(x[idx[a] + m * tau] - x[idx[nn] + m * tau]) / Math.sqrt(nnd) > 10) bad++; }
+    }
+    two.push(cnt / sumln); if (m < mMax) fnn.push(tot ? bad / tot : 0);
+  }
+  return { two, fnn };
+}
+function fnnAtTau(x, tau, m) {
+  const n = Math.min(1500, +$("npts").value), idx = subsample(x, tau, m + 1, n, 5), W = 200, D2 = new Float64Array(n * n);
+  for (let k = 0; k < m; k++) { const v = Float64Array.from(idx, (i) => x[i + k * tau]); for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) { const d = v[a] - v[b]; D2[a * n + b] += d * d; } }
+  let bad = 0, tot = 0;
+  for (let a = 0; a < n; a++) { let nnd = Infinity, nn = -1; for (let b = 0; b < n; b++) { if (Math.abs(idx[a] - idx[b]) > W) { const d = D2[a * n + b]; if (d < nnd) { nnd = d; nn = b; } } } if (nn >= 0 && nnd > 0) { tot++; if (Math.abs(x[idx[a] + m * tau] - x[idx[nn] + m * tau]) / Math.sqrt(nnd) > 10) bad++; } }
+  return tot ? bad / tot : 0;
+}
+function mutualInfo(x, maxTau) {
+  const bins = 32; let lo = Infinity, hi = -Infinity; for (const v of x) { lo = Math.min(lo, v); hi = Math.max(hi, v); } const w = (hi - lo) / bins + 1e-12, bi = (v) => Math.min(bins - 1, Math.floor((v - lo) / w)), out = [];
+  for (let t = 1; t <= maxTau; t++) { const J = new Float64Array(bins * bins), px = new Float64Array(bins), py = new Float64Array(bins), n = x.length - t; for (let i = 0; i < n; i++) { const a = bi(x[i]), b = bi(x[i + t]); J[a * bins + b]++; px[a]++; py[b]++; } let mi = 0; for (let a = 0; a < bins; a++) for (let b = 0; b < bins; b++) { const p = J[a * bins + b] / n; if (p > 0) mi += p * Math.log(p / ((px[a] / n) * (py[b] / n))); } out.push(mi); }
+  return out;
+}
+function autocorr(x, maxTau) { const n = x.length, out = []; let v0 = 0; for (const v of x) v0 += v * v; for (let t = 1; t <= maxTau; t++) { let s = 0; for (let i = 0; i < n - t; i++) s += x[i] * x[i + t]; out.push(s / v0); } return out; }
+const firstMin = (mi) => { for (let k = 0; k < mi.length - 1; k++) if (mi[k + 1] > mi[k]) return k + 1; return null; };
+const firstZero = (ac) => { for (let k = 0; k < ac.length; k++) if (ac[k] < 0) return k + 1; return null; };
+
+// ---------------- charts ----------------
+function el(tag, attrs, parent, text) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text !== undefined) e.textContent = text; if (parent) parent.appendChild(e); return e; }
+function chart(svg, o) {
+  svg.innerHTML = ""; const W = 280, H = 200, l = 38, r = 10, t = 10, b = 34, xs = o.xs, x0 = o.xmin ?? Math.min(...xs), x1 = o.xmax ?? Math.max(...xs); let ymax = o.ymax ?? Math.max(...o.series.flatMap((s) => s.y.filter(Number.isFinite))) * 1.1; if (!(ymax > 0)) ymax = 1; const y0 = o.ymin ?? 0;
+  const X = (v) => l + (v - x0) / (x1 - x0 || 1) * (W - l - r), Y = (v) => t + (H - t - b) * (1 - (v - y0) / (ymax - y0));
+  const step = (() => { const raw = (ymax - y0) / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; })();
+  for (let v = y0; v <= ymax + 1e-9; v += step) { el("line", { x1: l, x2: W - r, y1: Y(v), y2: Y(v), stroke: css("--grid") }, svg); el("text", { x: l - 5, y: Y(v) + 4, "text-anchor": "end", "font-size": 10.5, style: "fill:" + css("--mute") }, svg, +v.toFixed(2)); }
+  (o.ticks || xs).forEach((v, i) => el("text", { x: X(v), y: H - b + 14, "text-anchor": "middle", "font-size": 10.5, style: "fill:" + css("--mute") }, svg, o.tickLabels ? o.tickLabels[i] : v));
+  el("text", { x: (l + W - r) / 2, y: H - 4, "text-anchor": "middle", "font-size": 11, style: "fill:" + css("--mute") }, svg, o.xlabel);
+  (o.hlines || []).forEach((h) => el("line", { x1: l, x2: W - r, y1: Y(h), y2: Y(h), stroke: css("--mute"), "stroke-dasharray": "4 4" }, svg));
+  (o.vlines || []).forEach((v) => { if (v.x >= x0 && v.x <= x1) { el("line", { x1: X(v.x), x2: X(v.x), y1: t, y2: H - b, stroke: v.color, "stroke-width": 1.6, "stroke-dasharray": "4 3" }, svg); } });
+  o.series.forEach((s) => { const pts = s.x.map((xv, i) => Number.isFinite(s.y[i]) ? `${X(xv)},${Y(s.y[i])}` : null).filter(Boolean).join(" "); el("polyline", { points: pts, fill: "none", stroke: s.color, "stroke-width": 2.2 }, svg); if (s.dots) s.x.forEach((xv, i) => { if (Number.isFinite(s.y[i])) el("circle", { cx: X(xv), cy: Y(s.y[i]), r: 3.2, fill: s.color }, svg); }); });
+}
+function drawSeries(x, dt) {
+  const svg = $("ts"); svg.innerHTML = ""; const W = 560, H = 120, n = Math.min(x.length, Math.round(1200 / 1)), lo = -3.2, hi = 3.2, X = (i) => 8 + i / (n - 1) * (W - 16), Y = (v) => 6 + (H - 12) * (1 - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo));
+  el("line", { x1: 8, x2: W - 8, y1: Y(0), y2: Y(0), stroke: css("--grid") }, svg); el("polyline", { points: Array.from({ length: n }, (_, i) => `${X(i)},${Y(x[i])}`).join(" "), fill: "none", stroke: css("--navy"), "stroke-width": 1.2 }, svg);
+  el("text", { x: W - 8, y: H - 4, "text-anchor": "end", "font-size": 10.5, style: "fill:" + css("--mute") }, svg, `first ${n} samples = ${(n * dt).toFixed(1)} time units`);
+}
+
+// ---------------- the 3D picture ----------------
+let ROT = { ax: 0.5, ay: 0.7, auto: true, drag: null }, PTS = null;
+function buildPoints(x, tau, m) { const N = 2600, P = new Float64Array(N * 3); for (let i = 0; i < N; i++) for (let k = 0; k < 3; k++) P[i * 3 + k] = k < m ? x[i + k * tau] : 0; return P; }
+function drawPicture() {
+  const cv = $("cv"), c = cv.getContext("2d"), P = PTS, N = P.length / 3; c.clearRect(0, 0, cv.width, cv.height);
+  const m = +$("m").value, sx = Math.sin(ROT.ax), cx = Math.cos(ROT.ax), sy = Math.sin(ROT.ay), cy = Math.cos(ROT.ay), sc = Math.min(cv.width, cv.height) / 6.6, mid = [cv.width / 2, cv.height / 2];
+  const proj = (i) => { let x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2]; if (m <= 2) { ; } const x1 = x * cy + z * sy, z1 = -x * sy + z * cy, y1 = y * cx - z1 * sx, z2 = y * sx + z1 * cx, f = 1 / (1 - z2 * 0.08); return [mid[0] + x1 * sc * f, mid[1] - y1 * sc * f]; };
+  const flat = m <= 2; const pr = (i) => flat ? [mid[0] + P[i * 3] * sc, mid[1] - P[i * 3 + 1] * sc] : proj(i);
+  c.lineWidth = 0.8; for (let i = 1; i < N; i++) { const a = pr(i - 1), b = pr(i), u = i / N; c.strokeStyle = `hsla(${190 - 150 * u}, 70%, ${css("--bg") === "#FFFFFF" ? 42 : 62}%, 0.55)`; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
+  c.fillStyle = css("--mute"); c.font = "13px Calibri, sans-serif"; c.fillText(m === 1 ? "m = 1: x(t) against itself, a line" : m === 2 ? "m = 2: (x(t), x(t+\u03c4))" : `m = ${m}: first three coordinates`, 12, 22);
+}
+function loopRot() { if (ROT.auto && +$("m").value >= 3) { ROT.ay += 0.006; drawPicture(); } requestAnimationFrame(loopRot); }
+
+// ---------------- update ----------------
+let CUR = null, busy = false;
+function update() {
+  const tau = +$("tau").value, m = +$("m").value, sg = SIGNALS[SIG], x = series(); $("tauv").textContent = tau; $("mv").textContent = m; $("noisev").textContent = $("noise").value + "%";
+  const t0 = performance.now(), A = analyse(x, tau, 8), taus = [1, 2, 4, 8, 16, 32, 64], ft = taus.map((t) => fnnAtTau(x, t, 2)), mi = mutualInfo(x, 120), ac = autocorr(x, 300), tmi = firstMin(mi), tac = firstZero(ac);
+  CUR = { A, x, tmi, tac, tau, m, sg };
+  $("timing").textContent = `computed in ${Math.round(performance.now() - t0)} ms`;
+  PTS = buildPoints(x, tau, m); drawPicture(); drawSeries(x, sg.dt);
+  const ms = [1, 2, 3, 4, 5, 6, 7, 8], accent = css("--amber"), teal = css("--teal");
+  chart($("chTwo"), { xs: ms, series: [{ x: ms, y: A.two, color: teal, dots: true }], xlabel: "number of delays m", ymin: 0, ymax: Math.max(3, ...A.two) * 1.05, vlines: [{ x: m, color: accent }] });
+  chart($("chFnn"), { xs: [1, 2, 3, 4, 5, 6, 7], series: [{ x: [1, 2, 3, 4, 5, 6, 7], y: A.fnn, color: accent, dots: true }], xlabel: "number of delays m", ymin: 0, ymax: 1, vlines: [{ x: m, color: teal }], hlines: [0.02] });
+  chart($("chTau"), { xs: [0, 1, 2, 3, 4, 5, 6], ticks: [0, 1, 2, 3, 4, 5, 6], series: [{ x: [0, 1, 2, 3, 4, 5, 6], y: ft, color: accent, dots: true }], tickLabels: ["1", "2", "4", "8", "16", "32", "64"], xlabel: "delay \u03c4 (samples)", ymin: 0, ymax: Math.max(0.3, ...ft) * 1.1, vlines: [{ x: Math.log2(tau), color: teal }] });
+  const tt = Array.from({ length: 120 }, (_, i) => i + 1), miN = mi.map((v) => v / mi[0]), acP = ac.slice(0, 120);
+  chart($("chMi"), { xs: [0, 30, 60, 90, 120], xmin: 1, xmax: 120, ticks: [1, 30, 60, 90, 120], series: [{ x: tt, y: miN, color: teal }, { x: tt, y: acP, color: accent }], xlabel: "\u03c4 (samples): MI (teal), autocorrelation (amber)", ymin: -0.5, ymax: 1.05, hlines: [0], vlines: [{ x: tau, color: css("--mute") }] });
+  const fn = A.fnn[m - 1] ?? null, ty = A.two[m - 1];
+  $("stats").innerHTML = `<div class="stat"><div class="k">delay \u03c4 = ${tau} samples</div><div class="v">${(tau * sg.dt).toFixed(2)} time units</div></div>` +
+    `<div class="stat"><div class="k">dimension of the delay cloud (m = ${m})</div><div class="v">${ty.toFixed(2)}</div></div>` +
+    `<div class="stat"><div class="k">false nearest neighbours (m = ${m})</div><div class="v">${fn === null ? "\u2014" : (100 * fn).toFixed(1) + "%"}</div></div>` +
+    `<div class="stat"><div class="k">first MI minimum | first autocorrelation zero</div><div class="v">${tmi ?? "\u2014"} | ${tac ?? "\u2014"} samples</div></div>`;
+  const fm = A.fnn.findIndex((v) => v < 0.02) + 1, top = (A.two[5] + A.two[6] + A.two[7]) / 3, plat = A.two.findIndex((v, i) => i >= 1 && v >= 0.92 * top) + 1, growing = A.two[7] - A.two[3] > 0.7;
+  let msg = "<b>Reading it.</b> ";
+  if (growing) msg += `The dimension keeps growing with m (${A.two[3].toFixed(1)} at m = 4, ${A.two[7].toFixed(1)} at m = 8): this signal does not saturate. Either it is noise, or a deterministic signal observed with noise (lower the noise slider and see), or its dimension is higher than the number of points can resolve.`;
+  else msg += `The dimension saturates near ${top.toFixed(1)} from m = ${plat}. ` + (fm > 0 ? `False neighbours fall below 2% from m = ${fm}: the picture no longer folds onto itself.` : `False neighbours stay above 2% for every m tested.`) + ` The theorem guarantees an embedding for m > 2 \u00d7 dimension (about ${Math.ceil(2 * top + 0.01)} here).`;
+  if (tmi && tac && tac > 3 * tmi) msg += ` The first MI minimum (${tmi} samples) is much shorter than the autocorrelation zero (${tac} samples): the autocorrelation delay would be too long.`;
+  $("note").innerHTML = msg;
+}
+
+// ---------------- wiring ----------------
+let timer = null; const later = () => { $("tauv").textContent = $("tau").value; $("mv").textContent = $("m").value; $("noisev").textContent = $("noise").value + "%"; clearTimeout(timer); timer = setTimeout(update, 60); };
+["tau", "m", "noise"].forEach((id) => $(id).oninput = later); $("npts").onchange = update;
+document.querySelectorAll(".chip").forEach((b) => b.onclick = () => { SIG = b.dataset.sig; document.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === b)); $("tau").value = SIGNALS[SIG].tau; $("noise").disabled = !SIGNALS[SIG].noisy; if (!SIGNALS[SIG].noisy) $("noise").value = 0; update(); });
+$("useMI").onclick = () => { if (CUR && CUR.tmi) { $("tau").value = Math.min(64, CUR.tmi); update(); } };
+$("rot").onclick = () => { ROT.auto = !ROT.auto; $("rot").textContent = ROT.auto ? "pause rotation" : "resume rotation"; };
+const cv = $("cv"); cv.onpointerdown = (e) => { ROT.drag = [e.clientX, e.clientY]; ROT.auto = false; $("rot").textContent = "resume rotation"; cv.setPointerCapture(e.pointerId); };
+cv.onpointermove = (e) => { if (!ROT.drag) return; ROT.ay += (e.clientX - ROT.drag[0]) * 0.01; ROT.ax += (e.clientY - ROT.drag[1]) * 0.01; ROT.drag = [e.clientX, e.clientY]; drawPicture(); };
+cv.onpointerup = () => { ROT.drag = null; };
+window.analyseForTest = (sig, tau, noise) => { SIG = sig; $("noise").value = noise; const x = series(); return analyse(x, tau, 8); };
+update(); requestAnimationFrame(loopRot);
+</script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 9 — Optimal transport playground</title>
+<style>
+:root { color-scheme: light dark; --bg:#FFFFFF; --card:#F2F4FB; --ink:#2B2B33; --mute:#6E7691; --navy:#1E2761; --ice:#CADCFC; --amber:#E8871E; --teal:#1C7293; --grid:#E3E7F0; --good:#2E8B72; --bad:#C94F4F; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12163A; --card:#1B2358; --ink:#E8ECF8; --mute:#9AA3C7; --navy:#CADCFC; --grid:#2F3A78; --teal:#5BB8D6; --good:#5FC9AA; --bad:#F07A7A; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 20px 28px; }
+h1 { font-family: Cambria, Georgia, serif; font-size: 26px; margin: 0 0 4px; color: var(--navy); }
+.sub { color: var(--mute); font-style: italic; margin-bottom: 12px; font-size: 15px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tab { border: 1px solid var(--grid); background: var(--card); color: var(--ink); padding: 8px 16px; border-radius: 18px; cursor: pointer; font-size: 15px; font-family: inherit; }
+.tab.on { background: var(--navy); color: var(--bg); border-color: var(--navy); }
+.ctrl { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14.5px; }
+.grp b { color: var(--navy); }
+.grp input[type=range] { accent-color: var(--amber); width: 150px; }
+.val { min-width: 44px; font-weight: bold; color: var(--amber); }
+.chip { border: 1px solid var(--grid); background: var(--bg); color: var(--ink); padding: 4px 11px; border-radius: 14px; cursor: pointer; font-size: 13.5px; font-family: inherit; }
+.chip.on { background: var(--navy); color: var(--bg); border-color: var(--navy); }
+select, button.go { font-family: inherit; font-size: 14px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--grid); background: var(--bg); color: var(--ink); cursor: pointer; }
+button.go { border-color: var(--amber); color: var(--amber); }
+.row { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; }
+@media (max-width: 950px) { .row { grid-template-columns: 1fr; } }
+.panel { background: var(--card); border-radius: 10px; padding: 10px 12px 12px; }
+.panel h2 { margin: 2px 0 6px; font-size: 15px; color: var(--navy); font-family: Cambria, Georgia, serif; }
+canvas { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 6px; }
+table.m { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.m th { text-align: left; color: var(--navy); font-weight: bold; padding: 4px 6px; border-bottom: 1px solid var(--grid); }
+table.m td { padding: 5px 6px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+table.m td.n { text-align: right; font-weight: bold; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; min-width: 90px; }
+.bar i { display: block; height: 100%; background: var(--teal); }
+.bar.w i { background: var(--amber); }
+.small { color: var(--mute); font-size: 12.5px; }
+.note { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-top: 12px; font-size: 14.5px; line-height: 1.45; }
+.note b { color: var(--navy); }
+.three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 950px) { .three { grid-template-columns: 1fr; } }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+@media (max-width: 950px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: var(--card); border-radius: 10px; padding: 8px 12px; }
+.stat .k { font-size: 12.5px; color: var(--mute); }
+.stat .v { font-size: 21px; font-weight: bold; color: var(--navy); font-family: Cambria, Georgia, serif; }
+.stat .v.am { color: var(--amber); } .stat .v.gd { color: var(--good); } .stat .v.bd { color: var(--bad); }
+.foot { color: var(--mute); font-size: 12.5px; margin-top: 12px; font-style: italic; line-height: 1.45; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Optimal transport playground</h1>
+  <div class="sub">Two clouds of points. Which distances notice that they are far apart, and what lies between them?</div>
+  <div class="tabs"><button class="tab on" data-t="1">1. Compare two clouds</button><button class="tab" data-t="2">2. Match and interpolate</button></div>
+
+  <section id="t1">
+    <div class="ctrl">
+      <div class="grp"><b>Cloud B</b>
+        <button class="chip on" data-shape="blob">same blob, shifted</button><button class="chip" data-shape="ring">ring, same covariance</button><button class="chip" data-shape="wide">wider blob</button></div>
+      <div class="grp"><b>shift d</b><input type="range" id="d1" min="0" max="12" step="0.25" value="4"><span class="val" id="d1v"></span></div>
+      <div class="grp"><b>points</b><input type="range" id="n1" min="40" max="150" step="10" value="100"><span class="val" id="n1v"></span></div>
+    </div>
+    <div class="ctrl">
+      <div class="grp"><b>histogram cell</b><input type="range" id="bin1" min="0.25" max="4" step="0.25" value="1"><span class="val" id="bin1v"></span></div>
+      <div class="grp"><b>kernel width</b><input type="range" id="ker1" min="0.25" max="4" step="0.25" value="1"><span class="val" id="ker1v"></span></div>
+      <div class="grp"><b>KL smoothing</b><input type="range" id="eps1" min="-4" max="-1" step="0.5" value="-3"><span class="val" id="eps1v"></span></div>
+      <div class="grp"><button class="go" id="pA">d = 4</button><button class="go" id="pB">d = 12</button><button class="go" id="pC">ring against blob</button><button class="go" id="pD">new sample</button></div>
+    </div>
+    <div class="row">
+      <div class="panel"><h2>The two clouds</h2><canvas id="c1" width="760" height="380"></canvas></div>
+      <div class="panel"><h2>What each candidate says</h2>
+        <table class="m" id="mt"></table>
+        <div class="small" style="margin-top:6px">The grey value is the same measure between two independent samples of cloud A: the sampling floor.</div>
+      </div>
+    </div>
+    <div class="note" id="note1"></div>
+  </section>
+
+  <section id="t2" hidden>
+    <div class="ctrl">
+      <div class="grp"><b>Clouds</b>
+        <button class="chip on" data-pre="translate">translate</button><button class="chip" data-pre="ring">blob &rarr; ring</button><button class="chip" data-pre="split">one blob &rarr; two</button><button class="chip" data-pre="wide">narrow &rarr; wide</button><button class="chip" data-pre="rotate">rotate a ring</button></div>
+      <div class="grp"><b>pairing rule</b>
+        <select id="rule"><option value="optimal">optimal (minimum total cost)</option><option value="random">random</option><option value="greedy">closest pair first</option><option value="sortx">sort by x, pair in order</option><option value="same">same index (follow each point)</option></select></div>
+    </div>
+    <div class="ctrl">
+      <div class="grp"><b>time t</b><input type="range" id="t2s" min="0" max="1" step="0.01" value="0.5" style="width:260px"><span class="val" id="t2v"></span><button class="go" id="play">&#9654; play</button></div>
+      <div class="grp"><b>points</b><input type="range" id="n2" min="40" max="150" step="10" value="100"><span class="val" id="n2v"></span></div>
+      <div class="grp"><button class="go" id="new2">new sample</button></div>
+    </div>
+    <div class="three">
+      <div class="panel"><h2>The pairing</h2><canvas id="c2a" width="420" height="330"></canvas></div>
+      <div class="panel"><h2>Move each point along its pair</h2><canvas id="c2b" width="420" height="330"></canvas></div>
+      <div class="panel"><h2>Average the two densities</h2><canvas id="c2c" width="420" height="330"></canvas></div>
+    </div>
+    <div class="stats" id="stats2"></div>
+    <div class="note" id="note2"></div>
+  </section>
+
+  <div class="foot">Everything is computed in your browser: the optimal pairing is the exact minimum-cost assignment (Hungarian algorithm) for squared Euclidean cost, so W&#8322; is exact for these samples. The total variation uses a 2D histogram with the cell size you choose; MMD uses a Gaussian kernel; KL is the histogram estimate with the smoothing constant added to every cell. Samples are small (40 to 150 points), so every number has sampling noise: compare it with the grey floor.</div>
+</div>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gauss(r) { let u = 0; while (u === 0) u = r(); const v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+const blob = (n, cx, cy, sd, r) => Array.from({ length: n }, () => [cx + sd * gauss(r), cy + sd * gauss(r)]);
+const ring = (n, cx, cy, rad, r, ang) => Array.from({ length: n }, (_, i) => { const a = ang ? ang[i] : 2 * Math.PI * r(); return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)]; });
+const sq = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
+
+// ---------------- minimum-cost assignment (Hungarian algorithm) ----------------
+function hungarian(C, n) {
+  const INF = 1e18, u = new Float64Array(n + 1), v = new Float64Array(n + 1), p = new Int32Array(n + 1), way = new Int32Array(n + 1);
+  for (let i = 1; i <= n; i++) {
+    p[0] = i; let j0 = 0; const minv = new Float64Array(n + 1).fill(INF), used = new Uint8Array(n + 1);
+    do {
+      used[j0] = 1; const i0 = p[j0]; let delta = INF, j1 = 0;
+      for (let j = 1; j <= n; j++) if (!used[j]) { const cur = C[(i0 - 1) * n + (j - 1)] - u[i0] - v[j]; if (cur < minv[j]) { minv[j] = cur; way[j] = j0; } if (minv[j] < delta) { delta = minv[j]; j1 = j; } }
+      for (let j = 0; j <= n; j++) { if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta; }
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+  }
+  const a = new Int32Array(n); for (let j = 1; j <= n; j++) a[p[j] - 1] = j - 1; return a;
+}
+function costMatrix(A, B) { const n = A.length, C = new Float64Array(n * n); for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) C[i * n + j] = sq(A[i], B[j]); return C; }
+function optimalPerm(A, B) { return hungarian(costMatrix(A, B), A.length); }
+function meanCost(A, B, perm) { let s = 0; for (let i = 0; i < A.length; i++) s += sq(A[i], B[perm[i]]); return s / A.length; }
+function w2(A, B) { return Math.sqrt(meanCost(A, B, optimalPerm(A, B))); }
+function greedyPerm(A, B) {
+  const n = A.length, pairs = []; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) pairs.push([sq(A[i], B[j]), i, j]);
+  pairs.sort((x, y) => x[0] - y[0]); const ua = new Uint8Array(n), ub = new Uint8Array(n), perm = new Int32Array(n); let k = 0;
+  for (const [, i, j] of pairs) { if (!ua[i] && !ub[j]) { ua[i] = ub[j] = 1; perm[i] = j; if (++k === n) break; } } return perm;
+}
+function sortxPerm(A, B) { const n = A.length, ia = [...Array(n).keys()].sort((a, b) => A[a][0] - A[b][0]), ib = [...Array(n).keys()].sort((a, b) => B[a][0] - B[b][0]), perm = new Int32Array(n); for (let k = 0; k < n; k++) perm[ia[k]] = ib[k]; return perm; }
+function randomPerm(n, r) { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return Int32Array.from(a); }
+
+// ---------------- the candidate distances ----------------
+function meanOf(A) { const m = [0, 0]; for (const p of A) { m[0] += p[0]; m[1] += p[1]; } return [m[0] / A.length, m[1] / A.length]; }
+function covOf(A) { const m = meanOf(A); let a = 0, b = 0, c = 0; for (const p of A) { a += (p[0] - m[0]) ** 2; b += (p[0] - m[0]) * (p[1] - m[1]); c += (p[1] - m[1]) ** 2; } const n = A.length - 1; return [a / n, b / n, c / n]; }
+function histProbs(A, B, cell) {
+  const all = A.concat(B); let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const p of all) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+  const nx = Math.max(1, Math.ceil((x1 - x0 + 1e-9) / cell)), ny = Math.max(1, Math.ceil((y1 - y0 + 1e-9) / cell)), pa = new Float64Array(nx * ny), pb = new Float64Array(nx * ny);
+  const idx = (p) => Math.min(nx - 1, Math.floor((p[0] - x0) / cell)) * ny + Math.min(ny - 1, Math.floor((p[1] - y0) / cell));
+  for (const p of A) pa[idx(p)] += 1 / A.length; for (const p of B) pb[idx(p)] += 1 / B.length; return [pa, pb];
+}
+const tvOf = (A, B, cell) => { const [p, q] = histProbs(A, B, cell); let s = 0; for (let i = 0; i < p.length; i++) s += Math.abs(p[i] - q[i]); return s / 2; };
+function klOf(A, B, cell, eps) { const [p, q] = histProbs(A, B, cell); let sp = 0, sq_ = 0; for (let i = 0; i < p.length; i++) { sp += p[i] + eps; sq_ += q[i] + eps; } let s = 0; for (let i = 0; i < p.length; i++) { const a = (p[i] + eps) / sp, b = (q[i] + eps) / sq_; s += a * Math.log(a / b); } return s; }
+function mmdOf(A, B, w) { const k = (X, Y) => { let s = 0; for (const a of X) for (const b of Y) s += Math.exp(-sq(a, b) / (2 * w * w)); return s / (X.length * Y.length); }; return Math.sqrt(Math.max(k(A, A) + k(B, B) - 2 * k(A, B), 0)); }
+
+// ---------------- canvas helpers ----------------
+function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function makeView(cv, xr, yr) { return { cv, ctx: cv.getContext("2d"), xr, yr, X: (x) => (x - xr[0]) / (xr[1] - xr[0]) * cv.width, Y: (y) => cv.height - (y - yr[0]) / (yr[1] - yr[0]) * cv.height }; }
+function clearView(V) { const c = V.ctx; c.clearRect(0, 0, V.cv.width, V.cv.height); c.strokeStyle = css("--grid"); c.lineWidth = 1; c.beginPath(); c.moveTo(V.X(V.xr[0]), V.Y(0)); c.lineTo(V.X(V.xr[1]), V.Y(0)); c.moveTo(V.X(0), V.Y(V.yr[0])); c.lineTo(V.X(0), V.Y(V.yr[1])); c.stroke(); }
+function dots(V, P, color, r) { const c = V.ctx; c.fillStyle = color; for (const p of P) { c.beginPath(); c.arc(V.X(p[0]), V.Y(p[1]), r || 3.2, 0, 7); c.fill(); } }
+function lines(V, A, B, perm, color) { const c = V.ctx; c.strokeStyle = color; c.lineWidth = 1; c.globalAlpha = 0.55; c.beginPath(); for (let i = 0; i < A.length; i++) { c.moveTo(V.X(A[i][0]), V.Y(A[i][1])); c.lineTo(V.X(B[perm[i]][0]), V.Y(B[perm[i]][1])); } c.stroke(); c.globalAlpha = 1; }
+
+// ================= Tab 1 =================
+let S1 = { shape: "blob", seed: 1 };
+function cloudsTab1() {
+  const n = +$("n1").value, d = +$("d1").value, r = mulberry32(1000 + S1.seed * 7), A = blob(n, 0, 0, 1, r), A2 = blob(n, 0, 0, 1, r);
+  let B; if (S1.shape === "blob") B = blob(n, d, 0, 1, r); else if (S1.shape === "ring") B = ring(n, d, 0, Math.SQRT2, r); else B = blob(n, d, 0, 2, r);
+  return { A, A2, B };
+}
+function metricsRow(name, note, val, floor, max, fmt, cls) { return `<tr><td><b>${name}</b><div class="small">${note}</div></td><td class="n">${fmt(val)}<div class="small">${fmt(floor)}</div></td><td><div class="bar ${cls || ""}"><i style="width:${Math.min(100, 100 * val / max)}%"></i></div></td></tr>`; }
+function draw1() {
+  const { A, A2, B } = cloudsTab1(), cell = +$("bin1").value, kw = +$("ker1").value, eps = Math.pow(10, +$("eps1").value);
+  $("d1v").textContent = (+$("d1").value).toFixed(2); $("n1v").textContent = $("n1").value; $("bin1v").textContent = cell; $("ker1v").textContent = kw; $("eps1v").textContent = "1e" + $("eps1").value;
+  const V = makeView($("c1"), [-4, 16], [-5, 5]); clearView(V); dots(V, A, css("--amber")); dots(V, B, css("--teal"));
+  const ma = meanOf(A), mb = meanOf(B), ca = covOf(A), cb = covOf(B), cf = (x, y) => Math.sqrt((x[0] - y[0]) ** 2 + 2 * (x[1] - y[1]) ** 2 + (x[2] - y[2]) ** 2);
+  const meanD = Math.hypot(ma[0] - mb[0], ma[1] - mb[1]), meanF = Math.hypot(...[0, 1].map((k) => meanOf(A)[k] - meanOf(A2)[k]));
+  const rows = [
+    ["A. means and covariances", "distance between the means, and the difference of covariances", meanD, meanF, 14, (v) => v.toFixed(2)],
+    ["B. total variation", "half the integral of |p \u2212 q| on the histogram cells", tvOf(A, B, cell), tvOf(A, A2, cell), 1, (v) => v.toFixed(3)],
+    ["C. KL divergence", "histogram estimate with the smoothing constant", klOf(A, B, cell, eps), klOf(A, A2, cell, eps), 8, (v) => v.toFixed(2)],
+    ["D. MMD", "Gaussian kernel of the chosen width", mmdOf(A, B, kw), mmdOf(A, A2, kw), 1.5, (v) => v.toFixed(3)],
+    ["Wasserstein W\u2082", "cost of the best pairing of the points", w2(A, B), w2(A, A2), 14, (v) => v.toFixed(3), "w"],
+  ];
+  $("mt").innerHTML = "<tr><th>candidate</th><th>value (floor)</th><th></th></tr>" + rows.map((r) => metricsRow(...r)).join("") +
+    `<tr><td><b>covariance difference</b><div class="small">Frobenius norm of \u03a3<sub>B</sub> \u2212 \u03a3<sub>A</sub></div></td><td class="n">${cf(ca, cb).toFixed(2)}<div class="small">${cf(ca, covOf(A2)).toFixed(2)}</div></td><td><div class="bar"><i style="width:${Math.min(100, 100 * cf(ca, cb) / 6)}%"></i></div></td></tr>`;
+  const tv = rows[1][2], wv = rows[4][2], d = +$("d1").value;
+  let msg = `<b>What to look at.</b> `;
+  if (S1.shape === "ring") msg += `Cloud B has the same mean and covariance as A (the covariance difference is at the floor), but it is a ring. The means row says "no difference"; W<sub>2</sub> is ${wv.toFixed(2)} against a floor of ${rows[4][3].toFixed(2)}.`;
+  else if (tv > 0.9 && d >= 3) msg += `The total variation is ${tv.toFixed(3)}: the two histograms no longer overlap, so it cannot tell d = 4 from d = 12. W<sub>2</sub> is ${wv.toFixed(2)}, close to d = ${d.toFixed(2)}. Try the two buttons "d = 4" and "d = 12" in turn.`;
+  else msg += `Move the shift d: watch which rows follow it. Then change the histogram cell, the kernel width and the smoothing: the numbers of B, C and D move, W<sub>2</sub> does not depend on any of them.`;
+  $("note1").innerHTML = msg;
+}
+
+// ================= Tab 2 =================
+let S2 = { pre: "translate", seed: 3, playing: false };
+function presetClouds(name, n, seed) {
+  const r = mulberry32(seed * 977 + 5), r2 = mulberry32(seed * 313 + 9);
+  if (name === "translate") return { A: blob(n, -2, 0, 1, r), B: blob(n, 2, 0, 1, r), truth: (t, m) => blob(m, -2 + 4 * t, 0, 1, r2), label: "a blob moved by 4" };
+  if (name === "ring") return { A: blob(n, -3.5, 0, 1, r), B: ring(n, 3.5, 0, 2.2, r), truth: null, label: "a blob becomes a ring" };
+  if (name === "split") { const B = blob(Math.ceil(n / 2), 3.5, 2, 0.6, r).concat(blob(Math.floor(n / 2), 3.5, -2, 0.6, r)); return { A: blob(n, -3.5, 0, 1, r), B, truth: null, label: "one blob splits in two" }; }
+  if (name === "wide") return { A: blob(n, -3, 0, 0.5, r), B: blob(n, 3, 0, 2, r), truth: (t, m) => blob(m, -3 + 6 * t, 0, 0.5 + 1.5 * t, r2), label: "a narrow blob becomes wide" };
+  const ang = Array.from({ length: n }, () => 2 * Math.PI * r()); return { A: ring(n, 0, 0, 3, r, ang), B: ring(n, 0, 0, 3, r, ang.map((a) => a + Math.PI / 2)), truth: null, label: "a ring turns by 90\u00b0 (point i becomes point i)" };
+}
+let C2 = null;
+function rebuild2() {
+  const n = +$("n2").value; $("n2v").textContent = n; const P = presetClouds(S2.pre, n, S2.seed); C2 = P; C2.n = P.A.length;
+  C2.optimal = optimalPerm(P.A, P.B); C2.W2 = Math.sqrt(meanCost(P.A, P.B, C2.optimal)); C2.rngR = mulberry32(S2.seed * 41 + 1);
+  C2.pa = randomPerm(C2.n, C2.rngR); C2.pb = randomPerm(C2.n, C2.rngR); C2.randPerm = randomPerm(C2.n, mulberry32(S2.seed * 59 + 3));
+  C2.greedy = greedyPerm(P.A, P.B); C2.sortx = sortxPerm(P.A, P.B); C2.same = Int32Array.from({ length: C2.n }, (_, i) => Math.min(i, P.B.length - 1));
+  C2.costs = { optimal: meanCost(P.A, P.B, C2.optimal), random: meanCost(P.A, P.B, C2.randPerm), greedy: meanCost(P.A, P.B, C2.greedy), sortx: meanCost(P.A, P.B, C2.sortx), same: meanCost(P.A, P.B, C2.same) };
+  draw2(true);
+}
+const VIEW2 = { translate: [[-6, 6], [-4, 4]], ring: [[-7, 7], [-4.5, 4.5]], split: [[-7, 7], [-4.5, 4.5]], wide: [[-7, 7], [-5, 5]], rotate: [[-5, 5], [-5, 5]] };
+function draw2(heavy) {
+  if (!C2) return; const t = +$("t2s").value, rule = $("rule").value, { A, B } = C2, n = C2.n; $("t2v").textContent = t.toFixed(2);
+  const perm = rule === "optimal" ? C2.optimal : rule === "random" ? C2.randPerm : rule === "greedy" ? C2.greedy : rule === "sortx" ? C2.sortx : C2.same;
+  const ink = css("--mute"), [xr, yr] = VIEW2[S2.pre], interp = A.map((a, i) => [(1 - t) * a[0] + t * B[perm[i]][0], (1 - t) * a[1] + t * B[perm[i]][1]]);
+  const k = Math.round((1 - t) * n), mix = Array.from(C2.pa.slice(0, k), (i) => A[i]).concat(Array.from(C2.pb.slice(0, n - k), (i) => B[i % B.length]));
+  let V = makeView($("c2a"), xr, yr); clearView(V); lines(V, A, B, perm, ink); dots(V, A, css("--amber"), 2.8); dots(V, B, css("--teal"), 2.8);
+  V = makeView($("c2b"), xr, yr); clearView(V); dots(V, A, css("--grid"), 2.4); dots(V, B, css("--grid"), 2.4); dots(V, interp, css("--teal"), 3.2);
+  V = makeView($("c2c"), xr, yr); clearView(V); dots(V, A, css("--grid"), 2.4); dots(V, B, css("--grid"), 2.4); dots(V, mix, css("--amber"), 3.2);
+  if (!heavy) return;
+  const d1 = w2(A, interp), d2 = w2(interp, B), d0 = C2.W2, detour = (d1 + d2) / d0;
+  let truthHtml = ""; if (C2.truth) { const T = C2.truth(t, n), T2 = C2.truth(t, n), f = w2(T, T2); truthHtml = `<div class="stat"><div class="k">W\u2082 from the true cloud at t: moved points | averaged densities</div><div class="v"><span class="gd">${w2(interp, T).toFixed(2)}</span> | <span class="bd">${w2(mix, T).toFixed(2)}</span></div><div class="k">sampling floor ${f.toFixed(2)}</div></div>`; }
+  else truthHtml = `<div class="stat"><div class="k">true cloud at t</div><div class="v" style="font-size:15px;color:var(--mute)">not known for this pair</div></div>`;
+  const cst = C2.costs, bestc = cst.optimal;
+  $("stats2").innerHTML =
+    `<div class="stat"><div class="k">cost of this pairing (mean squared distance)</div><div class="v ${perm === C2.optimal ? "gd" : "bd"}">${cst[rule].toFixed(2)}</div><div class="k">optimal: ${bestc.toFixed(2)} \u00b7 W\u2082(A, B) = ${d0.toFixed(3)}</div></div>` +
+    `<div class="stat"><div class="k">path through the middle / straight distance</div><div class="v ${Math.abs(detour - 1) < 0.02 ? "gd" : "bd"}">${detour.toFixed(3)}</div><div class="k">W\u2082(A, M<sub>t</sub>) + W\u2082(M<sub>t</sub>, B) = ${(d1 + d2).toFixed(2)}; a geodesic gives 1.000</div></div>` +
+    `<div class="stat"><div class="k">distance travelled so far: W\u2082(A, M<sub>t</sub>)</div><div class="v">${d1.toFixed(2)}</div><div class="k">expected t \u00b7 W\u2082(A, B) = ${(t * d0).toFixed(2)}</div></div>` + truthHtml;
+  let msg = `<b>${C2.label}.</b> `;
+  if (S2.pre === "rotate") msg += `Optimal W\u2082 between the ring and its rotation is only ${d0.toFixed(2)} (the cloud looks the same), while "same index" moves every point by the full chord (cost ${cst.same.toFixed(2)}). The cloud view cannot see the rotation. Compare the rules.`;
+  else if (rule === "optimal") msg += `With the optimal pairing the middle cloud M<sub>t</sub> lies on a shortest path: the detour factor is 1. Switch the rule to "random" or "closest pair first": the pairing costs more and the middle is no longer on a shortest path. On the right, averaging the densities keeps the two clouds where they were.`;
+  else msg += `This pairing costs ${(cst[rule] / bestc).toFixed(2)} times the optimum, and the path through the middle is ${(100 * (detour - 1)).toFixed(0)}% longer than the straight distance.`;
+  $("note2").innerHTML = msg;
+}
+
+// ---------------- wiring ----------------
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => { document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b)); $("t1").hidden = b.dataset.t !== "1"; $("t2").hidden = b.dataset.t !== "2"; if (b.dataset.t === "1") draw1(); else if (!C2) rebuild2(); else draw2(true); });
+document.querySelectorAll("#t1 .chip").forEach((b) => b.onclick = () => { S1.shape = b.dataset.shape; document.querySelectorAll("#t1 .chip").forEach((x) => x.classList.toggle("on", x === b)); draw1(); });
+["d1", "n1", "bin1", "ker1", "eps1"].forEach((id) => $(id).oninput = draw1);
+$("pA").onclick = () => { $("d1").value = 4; S1.shape = "blob"; syncChips(); draw1(); }; $("pB").onclick = () => { $("d1").value = 12; S1.shape = "blob"; syncChips(); draw1(); };
+$("pC").onclick = () => { $("d1").value = 0; S1.shape = "ring"; syncChips(); draw1(); }; $("pD").onclick = () => { S1.seed++; draw1(); };
+function syncChips() { document.querySelectorAll("#t1 .chip").forEach((x) => x.classList.toggle("on", x.dataset.shape === S1.shape)); }
+document.querySelectorAll("#t2 .chip").forEach((b) => b.onclick = () => { S2.pre = b.dataset.pre; document.querySelectorAll("#t2 .chip").forEach((x) => x.classList.toggle("on", x === b)); rebuild2(); });
+let deb = null; const lazy = () => { draw2(false); clearTimeout(deb); deb = setTimeout(() => draw2(true), 150); };
+$("t2s").oninput = lazy; $("rule").onchange = () => draw2(true); $("n2").onchange = rebuild2; $("n2").oninput = () => { $("n2v").textContent = $("n2").value; };
+$("new2").onclick = () => { S2.seed++; rebuild2(); };
+$("play").onclick = () => { if (S2.playing) { S2.playing = false; $("play").innerHTML = "&#9654; play"; return; } S2.playing = true; $("play").innerHTML = "&#9632; stop"; let t = 0; const step = () => { if (!S2.playing) return; t = (t + 0.012) % 1.0; $("t2s").value = t; draw2(false); requestAnimationFrame(step); }; step(); };
+window.matchState = () => ({ A: C2 && C2.A, B: C2 && C2.B, optimal: C2 && Array.from(C2.optimal), costs: C2 && C2.costs });   // for testing
+draw1();
+</script>
+</body>
+</html>
