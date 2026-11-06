@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo 12 — Distances, gaps and knots</title>
+<style>
+:root { color-scheme: light dark; --bg:#FFFFFF; --card:#F2F4FB; --ink:#2B2B33; --mute:#6E7691; --navy:#1E2761; --ice:#CADCFC; --amber:#E8871E; --teal:#1C7293; --grid:#E3E7F0; --green:#2E8B72; --bad:#C94F4F; }
+@media (prefers-color-scheme: dark) { :root { --bg:#12163A; --card:#1B2358; --ink:#E8ECF8; --mute:#9AA3C7; --navy:#CADCFC; --grid:#2F3A78; --teal:#5BB8D6; --green:#5FC9AA; --bad:#F07A7A; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 18px 20px 28px; }
+h1 { font-family: Cambria, Georgia, serif; font-size: 26px; margin: 0 0 4px; color: var(--navy); }
+.sub { color: var(--mute); font-style: italic; margin-bottom: 12px; font-size: 15px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.tab { border: 1px solid var(--grid); background: var(--card); color: var(--ink); padding: 8px 16px; border-radius: 18px; cursor: pointer; font-size: 15px; font-family: inherit; }
+.tab.on { background: var(--navy); color: var(--bg); border-color: var(--navy); }
+.ctrl { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+.grp { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14.5px; }
+.grp b { color: var(--navy); }
+.grp input[type=range] { accent-color: var(--amber); width: 220px; }
+.val { min-width: 54px; font-weight: bold; color: var(--amber); font-variant-numeric: tabular-nums; }
+button.go { font-family: inherit; font-size: 13.5px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--amber); background: transparent; color: var(--amber); cursor: pointer; }
+.row { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; }
+@media (max-width: 950px) { .row { grid-template-columns: 1fr; } }
+.panel { background: var(--card); border-radius: 10px; padding: 10px 12px 12px; }
+.panel h2 { margin: 2px 0 6px; font-size: 15px; color: var(--navy); font-family: Cambria, Georgia, serif; }
+canvas { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 6px; touch-action: none; }
+svg { width: 100%; height: auto; display: block; }
+svg text { font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--ink); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.stat { background: var(--bg); border-radius: 10px; padding: 8px 12px; }
+.stat .k { font-size: 12.5px; color: var(--mute); }
+.stat .v { font-size: 24px; font-weight: bold; color: var(--navy); font-family: Cambria, Georgia, serif; font-variant-numeric: tabular-nums; }
+.stat .v.am { color: var(--amber); } .stat .v.gd { color: var(--green); } .stat .v.bd { color: var(--bad); }
+.note { background: var(--card); border-radius: 10px; padding: 10px 14px; margin-top: 12px; font-size: 14.5px; line-height: 1.5; }
+.note b { color: var(--navy); }
+.big { font-size: 17px; font-weight: bold; margin: 8px 0 2px; }
+.foot { color: var(--mute); font-size: 12.5px; margin-top: 12px; font-style: italic; line-height: 1.45; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Distances, gaps and knots</h1>
+  <div class="sub">Three small experiments: what distances see, what a random sample shows, and what a homotopy may do.</div>
+  <div class="tabs"><button class="tab on" data-t="1">1. Distances against topology</button><button class="tab" data-t="2">2. Gaps in a random sample</button><button class="tab" data-t="3">3. Pull a trefoil into a circle</button></div>
+
+  <section id="t1">
+    <div class="ctrl">
+      <div class="grp"><b>stretch</b><input type="range" id="st" min="1" max="2" step="0.01" value="1"><span class="val" id="stv"></span></div>
+      <div class="grp"><b>gap (rad)</b><input type="range" id="gp" min="0" max="1.2" step="0.01" value="0"><span class="val" id="gpv"></span></div>
+      <div class="grp"><button class="go" id="a1">tiny gap, no stretch</button><button class="go" id="a2">stretch 1.5, no gap</button><button class="go" id="a3">reset</button></div>
+    </div>
+    <div class="row">
+      <div class="panel"><h2>The circle (grey) and the new shape</h2><canvas id="cv1" width="640" height="420"></canvas></div>
+      <div class="panel"><h2>What distances say, and what topology says</h2>
+        <div class="stats"><div class="stat"><div class="k">W₁ between the distributions of pairwise distances</div><div class="v am" id="w1"></div></div><div class="stat"><div class="k">Hausdorff distance to the circle</div><div class="v am" id="hd"></div></div></div>
+        <div class="big" id="topo"></div><div id="topo2" style="font-size:14.5px"></div>
+        <div style="margin-top:10px"><svg id="bar1" viewBox="0 0 520 120"></svg></div>
+      </div>
+    </div>
+    <div class="note" id="note1"></div>
+  </section>
+
+  <section id="t2" hidden>
+    <div class="ctrl">
+      <div class="grp"><b>points N</b><input type="range" id="nn" min="10" max="600" step="1" value="30"><span class="val" id="nnv"></span></div>
+      <div class="grp"><b>gap threshold (rad)</b><input type="range" id="gt" min="0.1" max="1.5" step="0.05" value="0.5"><span class="val" id="gtv"></span></div>
+      <div class="grp"><button class="go" id="ns">new sample</button></div>
+    </div>
+    <div class="row">
+      <div class="panel"><h2>One random sample of a full circle; its largest gap in orange</h2><canvas id="cv2" width="520" height="480"></canvas>
+        <div class="stats"><div class="stat"><div class="k">largest gap in this sample (rad)</div><div class="v" id="mg"></div></div><div class="stat"><div class="k">would we mistake it for an arc?</div><div class="v" id="mistake"></div></div></div></div>
+      <div class="panel"><h2>Chance that a random sample has a gap larger than the threshold</h2>
+        <div class="stats"><div class="stat"><div class="k" id="plabel"></div><div class="v am" id="pv"></div></div><div class="stat"><div class="k">simulated samples</div><div class="v" id="trials"></div></div></div>
+        <div style="margin-top:10px"><svg id="ch2" viewBox="0 0 560 280"></svg></div></div>
+    </div>
+    <div class="note" id="note2"></div>
+  </section>
+
+  <section id="t3" hidden>
+    <div class="ctrl">
+      <div class="grp"><b>homotopy s</b><input type="range" id="hs" min="0" max="1" step="0.005" value="0" style="width:360px"><span class="val" id="hsv"></span></div>
+      <div class="grp"><button class="go" id="h0">trefoil</button><button class="go" id="h1">the closest approach</button><button class="go" id="h2">circle</button><button class="go" id="rot">pause rotation</button></div>
+    </div>
+    <div class="row">
+      <div class="panel"><h2>H(s) = (1 − s) · trefoil + s · circle (drag to rotate)</h2><canvas id="cv3" width="640" height="500"></canvas></div>
+      <div class="panel"><h2>The closest two distant strands come</h2>
+        <div class="stats"><div class="stat"><div class="k">smallest distance between far-apart strands, now</div><div class="v" id="dm"></div></div><div class="stat"><div class="k">smallest along the whole homotopy</div><div class="v am" id="dmm"></div></div></div>
+        <div class="big" id="verdict"></div>
+        <div style="margin-top:10px"><svg id="ch3" viewBox="0 0 560 250"></svg></div>
+      </div>
+    </div>
+    <div class="note" id="note3"></div>
+  </section>
+  <div class="foot">Everything is computed in your browser. Tab 1: 200 points spaced equally along each curve; W₁ compares the sorted lists of all pairwise distances. Tab 2: random uniform angles; the probability is estimated from simulated samples. Tab 3: 240 points per curve; "far-apart" means at least N/12 steps along the curve. A straight-line homotopy is a homotopy: nothing stops the curve from passing through itself.</div>
+</div>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id), NS = "http://www.w3.org/2000/svg";
+function css(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function el(svg, tag, a, txt) { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); if (txt !== undefined) e.textContent = txt; svg.appendChild(e); return e; }
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => { document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b)); ["t1", "t2", "t3"].forEach((t) => $(t).hidden = b.dataset.t !== t.slice(1)); if (b.dataset.t === "1") draw1(); if (b.dataset.t === "2") draw2(); if (b.dataset.t === "3") draw3(); });
+
+// ============================ TAB 1: distances against topology ============================
+function curvePoints(N, gap, s) {
+  const closed = gap < 1e-9, M = 6000, X = [], cum = [0]; for (let i = 0; i <= M; i++) { const a = gap / 2 + (2 * Math.PI - gap) * i / M; X.push([s * Math.cos(a), Math.sin(a) / s]); if (i) cum.push(cum[i - 1] + Math.hypot(X[i][0] - X[i - 1][0], X[i][1] - X[i - 1][1])); }
+  const L = cum[M], out = []; let j = 0; for (let k = 0; k < N; k++) { const target = (closed ? k / N : k / (N - 1)) * L; while (j < M - 1 && cum[j + 1] < target) j++; const f = (target - cum[j]) / (cum[j + 1] - cum[j] || 1); out.push([X[j][0] + f * (X[j + 1][0] - X[j][0]), X[j][1] + f * (X[j + 1][1] - X[j][1])]); } return out;
+}
+function pairDist(P) { const d = []; for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++) d.push(Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1])); return d.sort((a, b) => a - b); }
+function hausdorff(A, B) { const dir = (X, Y) => { let m = 0; for (const p of X) { let b = 1e9; for (const q of Y) b = Math.min(b, Math.hypot(p[0] - q[0], p[1] - q[1])); m = Math.max(m, b); } return m; }; return Math.max(dir(A, B), dir(B, A)); }
+let REF = null, REFD = null;
+function draw1() {
+  const s = +$("st").value, g = +$("gp").value, N = 200; $("stv").textContent = s.toFixed(2); $("gpv").textContent = g.toFixed(2);
+  if (!REF) { REF = curvePoints(N, 0, 1); REFD = pairDist(REF); } const Q = curvePoints(N, g, s), dq = pairDist(Q); let w1 = 0; for (let i = 0; i < dq.length; i++) w1 += Math.abs(dq[i] - REFD[i]); w1 /= dq.length; const hd = hausdorff(Q, REF);
+  const cv = $("cv1"), c = cv.getContext("2d"); c.clearRect(0, 0, cv.width, cv.height); const sc = 150, ox = cv.width / 2, oy = cv.height / 2, T = (p) => [ox + p[0] * sc, oy - p[1] * sc];
+  c.fillStyle = css("--grid"); REF.forEach((p) => { const a = T(p); c.beginPath(); c.arc(a[0], a[1], 4, 0, 7); c.fill(); }); c.fillStyle = g > 0 ? css("--amber") : css("--teal"); Q.forEach((p) => { const a = T(p); c.beginPath(); c.arc(a[0], a[1], 3, 0, 7); c.fill(); });
+  $("w1").textContent = w1.toFixed(4); $("hd").textContent = hd.toFixed(3);
+  const changed = g > 0; $("topo").textContent = changed ? "Topology: an interval (\u03b2\u2081 = 0). It changed." : "Topology: a circle (\u03b2\u2081 = 1). It did not change."; $("topo").style.color = changed ? css("--bad") : css("--green");
+  $("topo2").textContent = changed ? "The circle was cut." : (s > 1.001 ? "Stretching is a homeomorphism: still a circle." : "Same shape as the reference.");
+  const svg = $("bar1"); svg.innerHTML = ""; const mxv = 0.25; [["W\u2081", w1, 0.25], ["Hausdorff", hd, 0.6]].forEach(([nm, v, mx], i) => { const y = 14 + i * 50; el(svg, "text", { x: 0, y: y + 16, "font-size": 13 }, nm); el(svg, "rect", { x: 90, y, width: 400, height: 22, fill: css("--grid"), rx: 4 }); el(svg, "rect", { x: 90, y, width: Math.min(400, 400 * v / mx), height: 22, fill: css("--amber"), rx: 4 }); });
+  $("note1").innerHTML = changed && s < 1.01 ? `<b>The distances barely move, the topology changes.</b> A gap of ${g.toFixed(2)} rad is a small geometric change with a large topological one.` : (!changed && s > 1.3 ? `<b>The distances move a lot, the topology does not.</b> A stretch of ${s.toFixed(2)} is far from the circle by both measures, but the shape is still a circle.` : "<b>Try the two buttons.</b> A tiny gap against a large stretch: which one does the distance call a bigger change, and which one does topology?");
+}
+["st", "gp"].forEach((id) => $(id).oninput = draw1);
+$("a1").onclick = () => { $("st").value = 1; $("gp").value = 0.5; draw1(); }; $("a2").onclick = () => { $("st").value = 1.5; $("gp").value = 0; draw1(); }; $("a3").onclick = () => { $("st").value = 1; $("gp").value = 0; draw1(); };
+
+// ============================ TAB 2: gaps in random samples ============================
+let SEED2 = 11, SAMP = null;
+function newSample() { const N = +$("nn").value, r = mulberry32(SEED2 * 7919 + N), a = Array.from({ length: N }, () => r() * 2 * Math.PI).sort((x, y) => x - y); let mg = 0, k = 0; for (let i = 0; i < N; i++) { const g = (i + 1 < N ? a[i + 1] : a[0] + 2 * Math.PI) - a[i]; if (g > mg) { mg = g; k = i; } } SAMP = { a, mg, start: a[k] }; }
+function simulate(N, thr, trials, seed) { const r = mulberry32(seed); let cnt = 0; for (let t = 0; t < trials; t++) { const a = new Float64Array(N); for (let i = 0; i < N; i++) a[i] = r() * 2 * Math.PI; a.sort(); let mg = a[0] + 2 * Math.PI - a[N - 1]; for (let i = 1; i < N; i++) mg = Math.max(mg, a[i] - a[i - 1]); if (mg > thr) cnt++; } return cnt / trials; }
+let t2timer = null;
+function draw2() {
+  const N = +$("nn").value, thr = +$("gt").value; $("nnv").textContent = N; $("gtv").textContent = thr.toFixed(2); if (!SAMP || SAMP.a.length !== N) newSample();
+  const cv = $("cv2"), c = cv.getContext("2d"); c.clearRect(0, 0, cv.width, cv.height); const R = 190, ox = cv.width / 2, oy = cv.height / 2; c.strokeStyle = css("--grid"); c.lineWidth = 1; c.beginPath(); c.arc(ox, oy, R, 0, 7); c.stroke();
+  c.fillStyle = css("--teal"); SAMP.a.forEach((a) => { c.beginPath(); c.arc(ox + R * Math.cos(a), oy - R * Math.sin(a), 4, 0, 7); c.fill(); }); c.strokeStyle = css("--amber"); c.lineWidth = 7; c.beginPath(); c.arc(ox, oy, R + 16, -(SAMP.start + SAMP.mg), -SAMP.start); c.stroke();
+  $("mg").textContent = SAMP.mg.toFixed(2); const mis = SAMP.mg > thr; $("mistake").textContent = mis ? "yes: it looks like an arc" : "no"; $("mistake").className = "v " + (mis ? "bd" : "gd");
+  clearTimeout(t2timer); t2timer = setTimeout(() => { const trials = 2000, p = simulate(N, thr, trials, 5 + N); $("pv").textContent = (100 * p).toFixed(1) + "%"; $("plabel").textContent = `chance of a gap > ${thr.toFixed(2)} rad with N = ${N}`; $("trials").textContent = trials;
+    const Ns = [10, 20, 30, 50, 75, 100, 150, 200, 300, 400, 600], ps = Ns.map((n) => simulate(n, thr, 1500, 100 + n)); const svg = $("ch2"); svg.innerHTML = ""; const W = 560, H = 280, l = 46, rr = 14, t = 14, b = 38, X = (i) => l + i / (Ns.length - 1) * (W - l - rr), Y = (v) => t + (H - t - b) * (1 - v);
+    [0, 0.25, 0.5, 0.75, 1].forEach((v) => { el(svg, "line", { x1: l, x2: W - rr, y1: Y(v), y2: Y(v), stroke: css("--grid") }); el(svg, "text", { x: l - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, style: "fill:" + css("--mute") }, Math.round(100 * v) + "%"); });
+    Ns.forEach((n, i) => el(svg, "text", { x: X(i), y: H - 18, "text-anchor": "middle", "font-size": 11, style: "fill:" + css("--mute") }, n)); el(svg, "text", { x: (l + W - rr) / 2, y: H - 2, "text-anchor": "middle", "font-size": 12, style: "fill:" + css("--mute") }, "number of random points N");
+    el(svg, "polyline", { points: ps.map((v, i) => X(i) + "," + Y(v)).join(" "), fill: "none", stroke: css("--amber"), "stroke-width": 2.6 }); ps.forEach((v, i) => el(svg, "circle", { cx: X(i), cy: Y(v), r: 4, fill: css("--amber") }));
+    let ci = 0, bd = 1e9; Ns.forEach((n, i) => { if (Math.abs(n - N) < bd) { bd = Math.abs(n - N); ci = i; } }); el(svg, "line", { x1: X(ci), x2: X(ci), y1: t, y2: H - b, stroke: css("--navy"), "stroke-dasharray": "5 4" });
+    $("note2").innerHTML = `<b>How to read it.</b> At N = ${N} a random sample of a full circle contains a gap larger than ${thr.toFixed(2)} rad with probability ${(100 * p).toFixed(1)}%: with the sample alone we cannot exclude that it comes from an arc with a gap of that size. The gap shrinks like (log N)/N, so N must grow as the feature we want to resolve shrinks.`; }, 80);
+}
+["nn", "gt"].forEach((id) => $(id).oninput = draw2); $("ns").onclick = () => { SEED2++; newSample(); draw2(); };
+
+// ============================ TAB 3: a trefoil pulled into a circle ============================
+const NK = 240, KT = Array.from({ length: NK }, (_, i) => { const t = 2 * Math.PI * i / NK; return [(Math.sin(t) + 2 * Math.sin(2 * t)) / 2.2, (Math.cos(t) - 2 * Math.cos(2 * t)) / 2.2, -Math.sin(3 * t) / 2.2]; }), KC = Array.from({ length: NK }, (_, i) => { const t = 2 * Math.PI * i / NK; return [Math.cos(t), Math.sin(t), 0]; });
+const curveAt = (s) => KT.map((p, i) => [0, 1, 2].map((k) => (1 - s) * p[k] + s * KC[i][k]));
+function dmin(P) { let m = 1e9; const k = Math.floor(NK / 12); for (let i = 0; i < NK; i++) for (let j = i + k; j < NK; j++) { const gap = Math.min(j - i, NK - (j - i)); if (gap < k) continue; const d = Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1], P[i][2] - P[j][2]); if (d < m) m = d; } return m; }
+const SS = Array.from({ length: 201 }, (_, i) => i / 200), DM = SS.map((s) => dmin(curveAt(s))), DMIN = Math.min(...DM), SMIN = SS[DM.indexOf(DMIN)];
+let ROT = { ax: 0.9, ay: 0.4, auto: true, drag: null };
+function draw3() {
+  const s = +$("hs").value; $("hsv").textContent = s.toFixed(3); const P = curveAt(s), d = dmin(P);
+  const cv = $("cv3"), c = cv.getContext("2d"); c.clearRect(0, 0, cv.width, cv.height); const sx = Math.sin(ROT.ax), cx = Math.cos(ROT.ax), sy = Math.sin(ROT.ay), cy = Math.cos(ROT.ay), sc = 175, ox = cv.width / 2, oy = cv.height / 2;
+  const pr = P.map((p) => { const x1 = p[0] * cy + p[2] * sy, z1 = -p[0] * sy + p[2] * cy, y1 = p[1] * cx - z1 * sx, z2 = p[1] * sx + z1 * cx; return [ox + x1 * sc, oy - y1 * sc, z2]; });
+  const segs = pr.map((p, i) => [i, (i + 1) % NK]).sort((a, b) => (pr[a[0]][2] + pr[a[1]][2]) - (pr[b[0]][2] + pr[b[1]][2])), bg = css("--bg"), col = d < 0.1 ? css("--bad") : css("--navy");
+  c.lineJoin = "round"; segs.forEach(([i, j]) => { c.strokeStyle = bg; c.lineWidth = 9; c.lineCap = "butt"; c.beginPath(); c.moveTo(pr[i][0], pr[i][1]); c.lineTo(pr[j][0], pr[j][1]); c.stroke(); c.strokeStyle = col; c.lineWidth = 3; c.lineCap = "round"; c.beginPath(); c.moveTo(pr[i][0], pr[i][1]); c.lineTo(pr[j][0], pr[j][1]); c.stroke(); });
+  $("dm").textContent = d.toFixed(3); $("dm").className = "v " + (d < 0.1 ? "bd" : "gd"); $("dmm").textContent = DMIN.toFixed(3) + " (s = " + SMIN.toFixed(2) + ")";
+  $("verdict").textContent = d < 0.1 ? "The strands touch: the curve passes through itself." : "Still embedded: strands are apart."; $("verdict").style.color = d < 0.1 ? css("--bad") : css("--green");
+  const svg = $("ch3"); svg.innerHTML = ""; const W = 560, H = 250, l = 46, rr = 14, t = 14, b = 36, mx = 0.65, X = (v) => l + v * (W - l - rr), Y = (v) => t + (H - t - b) * (1 - v / mx);
+  [0, 0.2, 0.4, 0.6].forEach((v) => { el(svg, "line", { x1: l, x2: W - rr, y1: Y(v), y2: Y(v), stroke: css("--grid") }); el(svg, "text", { x: l - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, style: "fill:" + css("--mute") }, v.toFixed(1)); });
+  [0, 0.25, 0.5, 0.75, 1].forEach((v) => el(svg, "text", { x: X(v), y: H - 18, "text-anchor": "middle", "font-size": 11, style: "fill:" + css("--mute") }, v)); el(svg, "text", { x: (l + W - rr) / 2, y: H - 3, "text-anchor": "middle", "font-size": 12, style: "fill:" + css("--mute") }, "s: 0 = trefoil, 1 = circle");
+  el(svg, "line", { x1: l, x2: W - rr, y1: Y(0.1), y2: Y(0.1), stroke: css("--bad"), "stroke-dasharray": "4 4" }); el(svg, "text", { x: W - rr, y: Y(0.1) - 4, "text-anchor": "end", "font-size": 11, style: "fill:" + css("--bad") }, "touching");
+  el(svg, "polyline", { points: SS.map((v, i) => X(v) + "," + Y(DM[i])).join(" "), fill: "none", stroke: css("--teal"), "stroke-width": 2.6 }); el(svg, "line", { x1: X(s), x2: X(s), y1: t, y2: H - b, stroke: css("--navy"), "stroke-dasharray": "5 4" });
+  $("note3").innerHTML = `<b>What happens.</b> At s = 0 the curve is a trefoil and at s = 1 a circle (an unknot). The straight-line homotopy is allowed, and on the way the strands come as close as ${DMIN.toFixed(3)} (at s = ${SMIN.toFixed(2)}): the curve passes through itself. A deformation that never crosses (an isotopy) cannot change the knot type; a homotopy can. A homotopy between two unknots (for example a circle and a bent circle) keeps the strands apart.`;
+}
+$("hs").oninput = draw3; $("h0").onclick = () => { $("hs").value = 0; draw3(); }; $("h1").onclick = () => { $("hs").value = SMIN; draw3(); }; $("h2").onclick = () => { $("hs").value = 1; draw3(); };
+$("rot").onclick = () => { ROT.auto = !ROT.auto; $("rot").textContent = ROT.auto ? "pause rotation" : "resume rotation"; };
+const cv3 = $("cv3"); cv3.onpointerdown = (e) => { ROT.drag = [e.clientX, e.clientY]; ROT.auto = false; $("rot").textContent = "resume rotation"; cv3.setPointerCapture(e.pointerId); };
+cv3.onpointermove = (e) => { if (!ROT.drag) return; ROT.ay += (e.clientX - ROT.drag[0]) * 0.01; ROT.ax += (e.clientY - ROT.drag[1]) * 0.01; ROT.drag = [e.clientX, e.clientY]; draw3(); }; cv3.onpointerup = () => { ROT.drag = null; };
+(function loop() { if (ROT.auto && !$("t3").hidden) { ROT.ay += 0.007; draw3(); } requestAnimationFrame(loop); })();
+window.testNumbers = () => ({ dmin_min: DMIN, s_min: SMIN, dm0: DM[0], dm1: DM[DM.length - 1], w: (() => { const R = curvePoints(200, 0, 1), Rd = pairDist(R), f = (s, g) => { const Q = curvePoints(200, g, s), q = pairDist(Q); let w = 0; for (let i = 0; i < q.length; i++) w += Math.abs(q[i] - Rd[i]); return [w / q.length, hausdorff(Q, R)]; }; return { gap: f(1, 0.5), ellipse: f(1.5, 0) }; })(), p: [20, 30, 50, 100, 200, 400].map((n) => simulate(n, 0.5, 4000, 77 + n)) });
+draw1();
+</script>
+</body>
+</html>
