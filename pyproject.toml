@@ -17,6 +17,7 @@ dependencies = [
     "persim",
     "plotly",
     "pot",
+    "python-pptx>=1.0.2",
     "qiskit",
     "rdkit>=2026.9.1",
     "ripser",
